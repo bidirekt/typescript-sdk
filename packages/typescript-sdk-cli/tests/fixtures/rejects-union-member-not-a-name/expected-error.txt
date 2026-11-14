@@ -1,0 +1,2 @@
+payments.ts:15 cannot read "union={card: Card[], pix: Pix}" in "@bidirekt field": write "union={<key>: <schema>, ...}"
+payments.ts:24 cannot read "union={card: map<Card>, pix: Pix}" in "@bidirekt field": write "union={<key>: <schema>, ...}"

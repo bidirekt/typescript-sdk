@@ -1,0 +1,5 @@
+payments.js:26 the "union=" of "@bidirekt field" lists "Boleto", which is not in "Card | Pix": remove its key or add it to the type
+payments.js:30 the "union=" of "@bidirekt field" misses "Pix" of "Card | Pix": add a key for it
+payments.js:34 the "union=" of "@bidirekt field" lists "Pix" more than once: keep one key for it
+shapes.ts:6 the "union=" of "@bidirekt field" lists "Boleto", which is not in "Card | Pix": remove its key or add it to the type
+shapes.ts:24 the "union=" of "@bidirekt field" misses "PixInfo" of "CardInfo | PixInfo": add a key for it

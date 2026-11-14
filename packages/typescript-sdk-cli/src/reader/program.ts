@@ -1,4 +1,4 @@
-import { dirname } from 'node:path'
+import { dirname, relative } from 'node:path'
 import ts from 'typescript'
 import type { SourceLocation } from '../model/contract.ts'
 import type { Diagnostic } from '../model/diagnostic.ts'
@@ -19,6 +19,12 @@ const forcedOptions = {
 
 const unreadableExtendsCodes = new Set([5083, 6053])
 
+const emittedDeclarations: Array<[string, string]> = [
+  ['.d.ts', '.js'],
+  ['.d.mts', '.mjs'],
+  ['.d.cts', '.cjs'],
+]
+
 const optionsWithoutConfig = {
   allowJs: true,
 }
@@ -34,14 +40,13 @@ const extensionsWithoutConfig = [
   'jsx',
 ]
 
+const buildDirectories = ['dist', 'build', 'out']
+
 const excludedWithoutConfig = [
   'node_modules',
   'bower_components',
   'jspm_packages',
-  '**/dist',
-  '**/build',
-  '**/out',
-  '**/coverage',
+  ...[...buildDirectories, 'coverage'].map((directory) => `**/${directory}`),
 ]
 
 function sdkResolutionFromCli(): ts.ResolvedModuleWithFailedLookupLocations {
@@ -91,7 +96,12 @@ export function programToUserFiles({
 }: ProjectProgram): Array<ts.SourceFile> {
   return program
     .getSourceFiles()
-    .filter((file) => !file.isDeclarationFile && !isInstalledFile(file))
+    .filter(
+      (file) =>
+        !program.isSourceFileDefaultLibrary(file) &&
+        !isInstalledFile(file) &&
+        !isBuildOutput(program, file),
+    )
 }
 
 export function isInstalledFile(file: ts.SourceFile): boolean {
@@ -116,6 +126,59 @@ export function programToSyntaxErrors(
 function syntaxMessageToText(message: string): string {
   const text = message.replace(/\.$/, '')
   return text.charAt(0).toLowerCase() + text.slice(1)
+}
+
+export function isBuildOutput(
+  program: ts.Program,
+  file: ts.SourceFile,
+): boolean {
+  const script = declarationToScriptName(file)
+  if (
+    script === undefined ||
+    !ts.sys.fileExists(script) ||
+    program.getSourceFile(script) !== undefined
+  ) {
+    return false
+  }
+  return (
+    !program.getRootFileNames().includes(file.fileName) ||
+    isInBuildDirectory(program, file)
+  )
+}
+
+function isInBuildDirectory(program: ts.Program, file: ts.SourceFile): boolean {
+  const configFile = program.getCompilerOptions().configFilePath
+  if (typeof configFile !== 'string') {
+    return false
+  }
+  return relative(dirname(configFile), file.fileName)
+    .split(/[\\/]/)
+    .some((segment) => buildDirectories.includes(segment))
+}
+
+export function declarationToScript(
+  program: ts.Program,
+  file: ts.SourceFile,
+): ts.SourceFile | undefined {
+  const script = declarationToScriptName(file)
+  if (script === undefined) {
+    return undefined
+  }
+  return program.getSourceFile(script)
+}
+
+function declarationToScriptName(file: ts.SourceFile): string | undefined {
+  if (!file.isDeclarationFile) {
+    return undefined
+  }
+  const emitted = emittedDeclarations.find(([declaration]) =>
+    file.fileName.endsWith(declaration),
+  )
+  if (emitted === undefined) {
+    return undefined
+  }
+  const [declaration, script] = emitted
+  return file.fileName.slice(0, -declaration.length) + script
 }
 
 function projectToParsedConfig(

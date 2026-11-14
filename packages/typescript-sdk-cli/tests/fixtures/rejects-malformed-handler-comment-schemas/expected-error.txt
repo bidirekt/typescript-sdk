@@ -1,0 +1,9 @@
+health.ts:4 "@bidirekt field" in a handler's comment needs a "@bidirekt schema <name>" above it
+health.ts:6 schema name "Health" is declared more than once: give each schema a distinct name
+health.ts:7 field "uptime" in a handler's comment needs its type: declare it with "type=<type>"
+health.ts:9 cannot read "@bidirekt field name=status type=string" in a handler's comment: write "@bidirekt field <name> type=<type>"
+health.ts:11 cannot read "@bidirekt schema name=Probe" in a handler's comment: write "@bidirekt schema <name>"
+health.ts:20 schema name "Health" is declared more than once: give each schema a distinct name
+health.ts:30 schema "Instant" is not declared: reference a schema by its name in the contract
+health.ts:31 schema "Sample" is not declared: reference a schema by its name in the contract
+health.ts:38 schema "Missing" is not declared: reference a schema by its name in the contract

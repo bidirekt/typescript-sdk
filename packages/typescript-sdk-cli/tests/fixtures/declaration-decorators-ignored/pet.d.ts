@@ -1,10 +1,9 @@
 import { BidirektField, BidirektSchema } from '@bidirekt/typescript-sdk'
 
 @BidirektSchema()
-export class Pet {
+export declare class Pet {
   @BidirektField()
   name: string
 }
 
-/** @bidirekt schema name=PetCard */
-export const petCard = { name: 'Rex' }
+export declare const Field: typeof BidirektField

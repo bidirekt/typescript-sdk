@@ -1,4 +1,4 @@
 shelter.ts:26 cannot translate "Readonly<Record<string, Cat | Dog>>" to a contract type: declare it with @BidirektField({ type })
 shelter.ts:29 cannot translate "Readonly<Record<string, string>>" to a contract type: declare it with @BidirektField({ type })
-shelter.ts:32 cannot translate interface "PetsByName": declare a class with @BidirektSchema and use it as the type
-shelter.ts:35 cannot translate interface "NotesByRoom": declare a class with @BidirektSchema and use it as the type
+shelter.ts:32 cannot translate interface "PetsByName": add "@bidirekt schema" above it
+shelter.ts:35 cannot translate interface "NotesByRoom": add "@bidirekt schema" above it

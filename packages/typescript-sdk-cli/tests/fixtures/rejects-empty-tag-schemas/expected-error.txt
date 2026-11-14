@@ -1,0 +1,3 @@
+pet.js:2 schema "Pet" has no field: annotate at least one field with "@bidirekt field"
+shapes.ts:2 schema "Owner" has no field: annotate at least one field with "@bidirekt field"
+shapes.ts:7 schema "Toy" has no field: annotate at least one field with "@bidirekt field"

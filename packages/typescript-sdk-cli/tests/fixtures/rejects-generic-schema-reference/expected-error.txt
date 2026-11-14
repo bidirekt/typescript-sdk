@@ -1,0 +1,1 @@
+pets.ts:18 cannot translate generic type "Page<Owner>": declare a non-generic class with "@bidirekt schema" and use it as the type

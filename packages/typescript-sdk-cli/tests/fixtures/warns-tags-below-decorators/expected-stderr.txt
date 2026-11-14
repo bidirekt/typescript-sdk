@@ -1,0 +1,3 @@
+pets.ts:17 warning: this comment is not above a statement or declaration, so its "@bidirekt" tags are not read: move it above the statement or declaration, before its decorators
+pets.ts:22 warning: this comment is not above a statement or declaration, so its "@bidirekt" tags are not read: move it above the statement or declaration, before its decorators
+pets.ts:24 warning: "@bidirekt field" is in class "Owner", which is neither a schema nor the parent of one, so it is not read: add "@bidirekt schema" above it

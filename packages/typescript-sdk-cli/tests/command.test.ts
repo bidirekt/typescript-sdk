@@ -202,6 +202,34 @@ describe('runCommand', () => {
     assert.deepEqual(result, { exitCode: 0, stderr: '' })
   })
 
+  it('writes the same contract from tags written with CRLF line endings', () => {
+    const taggedPet = [
+      '/** @bidirekt schema */',
+      'export class Pet {',
+      '  /**',
+      '   * @bidirekt field type=string description="The name',
+      '   * the owner calls the pet"',
+      '   */',
+      '  name',
+      '}',
+      '',
+    ].join('\n')
+    const lf = writeProject('tags-lf', { 'pet.js': taggedPet })
+    const crlf = writeProject('tags-crlf', {
+      'pet.js': taggedPet.replaceAll('\n', '\r\n'),
+    })
+
+    const lfResult = runCommand(['generate'], lf)
+    const crlfResult = runCommand(['generate'], crlf)
+
+    assert.deepEqual(lfResult, { exitCode: 0, stderr: '' })
+    assert.deepEqual(crlfResult, { exitCode: 0, stderr: '' })
+    assert.equal(
+      readFileSync(join(crlf, 'contracts', 'generated.yaml'), 'utf8'),
+      readFileSync(join(lf, 'contracts', 'generated.yaml'), 'utf8'),
+    )
+  })
+
   it('fails without a stack trace when --out is a directory', () => {
     const directory = writeProject('out-directory', {
       'pet.ts': annotatedPet,

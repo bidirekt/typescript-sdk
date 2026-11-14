@@ -1,0 +1,13 @@
+pets.js:20 cannot read the type of "notes": write its type or declare it with "@bidirekt field type=<type>" or a JSDoc @type
+pets.js:24 cannot translate "string | number" to a contract type: declare it with "@bidirekt field type=<type>" or a JSDoc @type
+pets.js:28 cannot translate numeric literal type "1 | 2": use string literals or declare it with "@bidirekt field type=<type>"
+pets.js:32 cannot translate union of classes "CardPayment | PixPayment": declare each member's key with "@bidirekt field union={<key>: <schema>, ...}"
+pets.js:36 cannot translate class "Address": add "@bidirekt schema" above it
+pets.js:40 cannot translate inline object type "{ street: string }": declare a class with "@bidirekt schema" and use it as the type
+pets.js:44 cannot translate "Date" to a contract type: declare it with "@bidirekt field type=<type>" or a JSDoc @type
+pets.js:48 cannot translate "Street" to a contract type: declare it with "@bidirekt field type=<type>" or a JSDoc @type
+pets.js:52 cannot translate "string | number" to a contract type: declare it with "@bidirekt field type=<type>" or a JSDoc @type
+shapes.ts:12 cannot translate interface "Shape": add "@bidirekt schema" above it
+shapes.ts:15 cannot translate generic type "Page<string>": declare a non-generic class with "@bidirekt schema" and use it as the type
+shapes.ts:21 cannot translate "string | number" to a contract type: declare it with "@bidirekt field type=<type>"
+shapes.ts:24 cannot read the type of "text": write its type or declare it with "@bidirekt field type=<type>"

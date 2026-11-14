@@ -66,7 +66,9 @@ export function programToSdkReferences(
   if (sdkExports.size === 0) {
     return []
   }
-  const pending: Array<ts.Node> = programToUserFiles(projectProgram).reverse()
+  const pending: Array<ts.Node> = programToUserFiles(projectProgram)
+    .filter((file) => !file.isDeclarationFile)
+    .reverse()
   for (let node = pending.pop(); node !== undefined; node = pending.pop()) {
     if (
       ts.isImportDeclaration(node) ||
@@ -114,7 +116,7 @@ function isImportBinding(node: ts.Node, checker: ts.TypeChecker): boolean {
   return symbol !== undefined && (symbol.flags & ts.SymbolFlags.Alias) !== 0
 }
 
-function isStatic(property: ts.PropertyDeclaration): boolean {
+export function isStatic(property: ts.Declaration): boolean {
   return (ts.getCombinedModifierFlags(property) & ts.ModifierFlags.Static) !== 0
 }
 

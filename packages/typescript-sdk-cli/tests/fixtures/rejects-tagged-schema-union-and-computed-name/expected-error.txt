@@ -1,0 +1,2 @@
+payments.ts:16 cannot translate union of classes "CardPayment | PixPayment": declare each member's key with "@bidirekt field union={<key>: <schema>, ...}"
+pet.js:7 cannot name field "[key]": declare it with "@bidirekt field name=<name>"

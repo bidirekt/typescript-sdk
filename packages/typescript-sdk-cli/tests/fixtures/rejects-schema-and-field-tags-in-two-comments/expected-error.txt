@@ -1,0 +1,3 @@
+pets.ts:2 "@bidirekt schema" is declared more than once on class "Pet": keep one
+pets.ts:5 "@bidirekt field" is declared more than once on property "name": keep one
+pets.ts:11 "@bidirekt schema" is declared more than once on type "Toy": keep one

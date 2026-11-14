@@ -4,13 +4,16 @@ import { isDiagnostic } from '../model/diagnostic.ts'
 import type { Diagnostic } from '../model/diagnostic.ts'
 import { nodeToLocation } from './location.ts'
 import {
+  builtDeclarationToDiagnostic,
+  classToDiagnostic,
   classToSchemaName,
   isDefaultLibrarySymbol,
   isLibrarySymbol,
   nodeToSymbol,
+  symbolToSchemaName,
   typeToUntranslatableMessage,
 } from './schema-context.ts'
-import type { SchemaContext } from './schema-context.ts'
+import type { FormHints, SchemaContext } from './schema-context.ts'
 
 export type NullabilityFlags = {
   nullable: boolean
@@ -27,7 +30,7 @@ type TypeParts = NullabilityFlags & {
 }
 
 type Walk = {
-  expanding: ReadonlySet<ts.TypeAliasDeclaration>
+  expanding: ReadonlySet<ts.Declaration>
   bindings: ReadonlyMap<ts.Symbol, Bound>
   union: SchemaNode | undefined
 }
@@ -38,9 +41,21 @@ type Bound = {
 }
 
 type Alias = {
-  declaration: ts.TypeAliasDeclaration
+  declaration: ts.Declaration
+  symbol: ts.Symbol
+  type: ts.TypeNode
   walk: Walk
 }
+
+type AliasType = {
+  declaration: ts.Declaration
+  type: ts.TypeNode
+  parameters: ReadonlyArray<ts.TypeParameterDeclaration>
+}
+
+type Reference = ts.TypeReferenceNode | ts.ImportTypeNode
+
+const boxedPrimitives = ['String', 'Number', 'Boolean']
 
 function startWalk(union: SchemaNode | undefined): Walk {
   return { expanding: new Set(), bindings: new Map(), union }
@@ -87,7 +102,7 @@ function memberToFollowed(
   if (alias === undefined || walk.expanding.has(alias.declaration)) {
     return undefined
   }
-  return { typeNode: alias.declaration.type, walk: alias.walk }
+  return { typeNode: alias.type, walk: alias.walk }
 }
 
 export function typeNodeToDeclaredUnion(
@@ -101,7 +116,7 @@ export function typeNodeToDeclaredUnion(
   }
   if (!hasUnion(translated.node)) {
     return {
-      message: `cannot place the "union" of @BidirektField in "${typeNode.getText()}": write a union of classes as its type, its items or its values`,
+      message: `cannot place ${context.hints.placeUnion} in "${typeNode.getText()}": write a union of classes as its type, its items or its values`,
     }
   }
   return translated.node
@@ -127,19 +142,25 @@ function classesToDeclaredUnion(
   if (union.type !== 'union') {
     return union
   }
-  const typeText = classes.map((each) => each.name).join(' | ')
-  const schemas: Array<string> = []
+  const named: Array<{ schema: string; code: string }> = []
   for (const each of classes) {
-    const name = classToSchemaName(each, context)
-    if (isDiagnostic(name)) {
-      return name
+    const schema = classToSchemaName(each, context)
+    if (isDiagnostic(schema)) {
+      return schema
     }
-    schemas.push(name)
+    named.push({ schema, code: each.name })
   }
+  const schemas = named.map(({ schema }) => schema)
+  const typeText = schemas.join(' | ')
   for (const { node } of union.members) {
     if (node.type === 'ref' && !schemas.includes(node.schema)) {
+      const renamed = named.find(({ code }) => code === node.schema)
+      let fix = 'remove its key or add it to the type'
+      if (renamed !== undefined) {
+        fix = `write its name in the contract, "${renamed.schema}"`
+      }
       return {
-        message: `the "union" of @BidirektField lists "${node.schema}", which is not in "${typeText}": remove its key or add it to the type`,
+        message: `${context.hints.placeUnion} lists "${node.schema}", which is not in "${typeText}": ${fix}`,
       }
     }
   }
@@ -149,12 +170,12 @@ function classesToDeclaredUnion(
     )
     if (keys.length === 0) {
       return {
-        message: `the "union" of @BidirektField misses "${schema}" of "${typeText}": add a key for it`,
+        message: `${context.hints.placeUnion} misses "${schema}" of "${typeText}": add a key for it`,
       }
     }
     if (keys.length > 1) {
       return {
-        message: `the "union" of @BidirektField lists "${schema}" more than once: keep one key for it`,
+        message: `${context.hints.placeUnion} lists "${schema}" more than once: keep one key for it`,
       }
     }
   }
@@ -208,6 +229,15 @@ function typeNodeToParts(typeNode: ts.TypeNode): TypeParts {
       node.types.forEach(add)
       return
     }
+    if (ts.isJSDocNullableType(node)) {
+      parts.nullable = true
+      add(node.type)
+      return
+    }
+    if (ts.isJSDocNonNullableType(node)) {
+      add(node.type)
+      return
+    }
     if (
       ts.isLiteralTypeNode(node) &&
       node.literal.kind === ts.SyntaxKind.NullKeyword
@@ -236,7 +266,10 @@ function typeNodeToNestedNode(
   }
   if (translated.optional) {
     return {
-      message: typeToUntranslatableMessage(unparenthesized(typeNode).getText()),
+      message: typeToUntranslatableMessage(
+        unparenthesized(typeNode).getText(),
+        context.hints,
+      ),
     }
   }
   return translated.node
@@ -268,14 +301,16 @@ function membersToTranslatedType(
     return { node, optional: literals.optional }
   }
   if (members.length > 1 && members.every(isNumericLiteralType)) {
-    return { message: numericLiteralMessage(whole.getText()) }
+    return { message: numericLiteralMessage(whole.getText(), context.hints) }
   }
   if (members.length > 1 && classes !== undefined) {
     return {
-      message: `cannot translate union of classes "${whole.getText()}": declare each member's key with @BidirektField({ union })`,
+      message: `cannot translate union of classes "${whole.getText()}": declare each member's key with ${context.hints.declareUnion}`,
     }
   }
-  return { message: typeToUntranslatableMessage(whole.getText()) }
+  return {
+    message: typeToUntranslatableMessage(whole.getText(), context.hints),
+  }
 }
 
 function memberToTranslatedType(
@@ -298,7 +333,7 @@ function memberToTranslatedType(
     }
   }
   if (isNumericLiteralType(member)) {
-    return { message: numericLiteralMessage(member.getText()) }
+    return { message: numericLiteralMessage(member.getText(), context.hints) }
   }
   if (ts.isArrayTypeNode(member)) {
     return arrayToTranslatedType(member.elementType, context, walk)
@@ -315,10 +350,10 @@ function memberToTranslatedType(
       return mapToTranslatedType(values, context, walk)
     }
     return {
-      message: `cannot translate inline object type "${member.getText()}": declare a class with @BidirektSchema and use it as the type`,
+      message: `cannot translate inline object type "${member.getText()}": declare a class with ${context.hints.schemaAnnotation} and use it as the type`,
     }
   }
-  if (ts.isTypeReferenceNode(member)) {
+  if (isReference(member)) {
     return referenceToTranslatedType(member, context, walk)
   }
   const literals = typeToStringLiterals(
@@ -327,11 +362,13 @@ function memberToTranslatedType(
   if (literals !== undefined) {
     return { node: { type: 'enum', members: literals }, optional: false }
   }
-  return { message: typeToUntranslatableMessage(member.getText()) }
+  return {
+    message: typeToUntranslatableMessage(member.getText(), context.hints),
+  }
 }
 
 function referenceToTranslatedType(
-  reference: ts.TypeReferenceNode,
+  reference: Reference,
   context: SchemaContext,
   walk: Walk,
 ): TranslatedType | Diagnostic {
@@ -339,9 +376,16 @@ function referenceToTranslatedType(
   if (bound !== undefined) {
     return walkToTranslatedType(bound.typeNode, context, bound.walk)
   }
-  const symbol = nodeToSymbol(reference.typeName, context)
+  const symbol = referenceToSymbol(reference, context)
   if (symbol === undefined) {
-    return { message: typeToUntranslatableMessage(reference.getText()) }
+    return {
+      message: typeToUntranslatableMessage(reference.getText(), context.hints),
+    }
+  }
+  const typeArguments = reference.typeArguments ?? []
+  const schema = symbolToSchemaName(symbol, context)
+  if (schema !== undefined && typeArguments.length === 0) {
+    return schemaToRef(schema)
   }
   if (symbol.flags & ts.SymbolFlags.Enum) {
     return enumToTranslatedType(symbol, context)
@@ -353,7 +397,6 @@ function referenceToTranslatedType(
   if (alias !== undefined) {
     return aliasToTranslatedType(alias, context, walk)
   }
-  const typeArguments = reference.typeArguments ?? []
   if (isLibrarySymbol(symbol, context)) {
     return libraryReferenceToTranslatedType(
       reference,
@@ -365,22 +408,26 @@ function referenceToTranslatedType(
   }
   if (typeArguments.length > 0) {
     return {
-      message: `cannot translate generic type "${reference.getText()}": declare a non-generic class with @BidirektSchema and use it as the type`,
+      message: `cannot translate generic type "${reference.getText()}": declare a non-generic class with ${context.hints.schemaAnnotation} and use it as the type`,
     }
   }
   if (symbol.flags & ts.SymbolFlags.Class) {
-    return classToTranslatedType(symbol, context)
+    return classToDiagnostic(symbol, context)
   }
   if (symbol.flags & ts.SymbolFlags.Interface) {
-    return {
-      message: `cannot translate interface "${symbol.name}": declare a class with @BidirektSchema and use it as the type`,
-    }
+    return (
+      builtDeclarationToDiagnostic(symbol, context) ?? {
+        message: `cannot translate interface "${symbol.name}": add "@bidirekt schema" above it`,
+      }
+    )
   }
-  return { message: typeToUntranslatableMessage(reference.getText()) }
+  return {
+    message: typeToUntranslatableMessage(reference.getText(), context.hints),
+  }
 }
 
 function libraryReferenceToTranslatedType(
-  reference: ts.TypeReferenceNode,
+  reference: Reference,
   name: string,
   typeArguments: ReadonlyArray<ts.TypeNode>,
   context: SchemaContext,
@@ -392,7 +439,7 @@ function libraryReferenceToTranslatedType(
   ) {
     return arrayToTranslatedType(typeArguments[0], context, walk)
   }
-  if (name === 'Record' && typeArguments.length === 2) {
+  if ((name === 'Record' || name === 'Object') && typeArguments.length === 2) {
     const [key, values] = typeArguments
     if (!isStringType(key, context)) {
       return {
@@ -401,7 +448,14 @@ function libraryReferenceToTranslatedType(
     }
     return mapToTranslatedType(values, context, walk)
   }
-  return { message: typeToUntranslatableMessage(reference.getText()) }
+  if (boxedPrimitives.includes(name) && typeArguments.length === 0) {
+    return {
+      message: `cannot translate "${name}" to a contract type: write "${name.toLowerCase()}" in lowercase`,
+    }
+  }
+  return {
+    message: typeToUntranslatableMessage(reference.getText(), context.hints),
+  }
 }
 
 function arrayToTranslatedType(
@@ -428,7 +482,7 @@ function mapToTranslatedType(
   return { node: { type: 'map', values: node }, optional: false }
 }
 
-function typeLiteralToMapValues(
+export function typeLiteralToMapValues(
   typeLiteral: ts.TypeLiteralNode,
   context: SchemaContext,
 ): ts.TypeNode | undefined {
@@ -452,15 +506,8 @@ function isStringType(typeNode: ts.TypeNode, context: SchemaContext): boolean {
   return (type.flags & ts.TypeFlags.String) !== 0
 }
 
-function classToTranslatedType(
-  symbol: ts.Symbol,
-  context: SchemaContext,
-): TranslatedType | Diagnostic {
-  const name = classToSchemaName(symbol, context)
-  if (isDiagnostic(name)) {
-    return name
-  }
-  return { node: { type: 'ref', schema: name }, optional: false }
+function schemaToRef(schema: string): TranslatedType {
+  return { node: { type: 'ref', schema }, optional: false }
 }
 
 function enumToTranslatedType(
@@ -474,7 +521,7 @@ function enumToTranslatedType(
   if (isDiagnostic(schema)) {
     return schema
   }
-  return { node: { type: 'ref', schema: schema.name }, optional: false }
+  return schemaToRef(schema.name)
 }
 
 export function enumToNamedSchema(
@@ -512,14 +559,16 @@ export function enumToNamedSchema(
 }
 
 function enumMemberToTranslatedType(
-  reference: ts.TypeReferenceNode,
+  reference: Reference,
   context: SchemaContext,
 ): TranslatedType | Diagnostic {
   const type = context.checker.getTypeFromTypeNode(reference)
   if (type.isStringLiteral()) {
     return { node: { type: 'enum', members: [type.value] }, optional: false }
   }
-  return { message: numericLiteralMessage(reference.getText()) }
+  return {
+    message: numericLiteralMessage(reference.getText(), context.hints),
+  }
 }
 
 type StringLiterals = NullabilityFlags & {
@@ -598,21 +647,24 @@ function aliasToTranslatedType(
   context: SchemaContext,
   walk: Walk,
 ): TranslatedType | Diagnostic {
-  const { declaration } = alias
-  if (walk.expanding.has(declaration)) {
-    return { message: typeToUntranslatableMessage(declaration.name.text) }
+  if (walk.expanding.has(alias.declaration)) {
+    return {
+      message: typeToUntranslatableMessage(alias.symbol.name, context.hints),
+    }
   }
-  const type = unparenthesized(declaration.type)
+  const type = unparenthesized(alias.type)
   if (ts.isTypeLiteralNode(type)) {
     const values = typeLiteralToMapValues(type, context)
     if (values === undefined) {
-      return {
-        message: `cannot translate object type "${declaration.name.text}": declare a class with @BidirektSchema and use it as the type`,
-      }
+      return (
+        builtDeclarationToDiagnostic(alias.symbol, context) ?? {
+          message: `cannot translate object type "${alias.symbol.name}": add "@bidirekt schema" above it`,
+        }
+      )
     }
     return mapToTranslatedType(values, context, alias.walk)
   }
-  return walkToTranslatedType(declaration.type, context, alias.walk)
+  return walkToTranslatedType(alias.type, context, alias.walk)
 }
 
 function typeNodeToAlias(
@@ -620,10 +672,10 @@ function typeNodeToAlias(
   context: SchemaContext,
   walk: Walk,
 ): Alias | undefined {
-  if (!ts.isTypeReferenceNode(typeNode)) {
+  if (!isReference(typeNode)) {
     return undefined
   }
-  const symbol = nodeToSymbol(typeNode.typeName, context)
+  const symbol = referenceToSymbol(typeNode, context)
   if (
     symbol === undefined ||
     !(symbol.flags & ts.SymbolFlags.TypeAlias) ||
@@ -631,12 +683,12 @@ function typeNodeToAlias(
   ) {
     return undefined
   }
-  const declaration = symbol.declarations?.find(ts.isTypeAliasDeclaration)
-  const parameters = declaration?.typeParameters ?? []
+  const found = symbolToAliasType(symbol)
   const typeArguments = typeNode.typeArguments ?? []
-  if (declaration === undefined || parameters.length !== typeArguments.length) {
+  if (found === undefined || found.parameters.length !== typeArguments.length) {
     return undefined
   }
+  const { declaration, type, parameters } = found
   const bindings = new Map<ts.Symbol, Bound>()
   parameters.forEach((parameter, index) => {
     const parameterSymbol = context.checker.getSymbolAtLocation(parameter.name)
@@ -646,12 +698,69 @@ function typeNodeToAlias(
   })
   return {
     declaration,
+    symbol,
+    type,
     walk: {
       expanding: new Set([...walk.expanding, declaration]),
       bindings,
       union: walk.union,
     },
   }
+}
+
+function symbolToAliasType(symbol: ts.Symbol): AliasType | undefined {
+  for (const declaration of symbol.declarations ?? []) {
+    if (ts.isTypeAliasDeclaration(declaration)) {
+      return {
+        declaration,
+        type: declaration.type,
+        parameters: declaration.typeParameters ?? [],
+      }
+    }
+    const type = typedefToTypeNode(declaration)
+    if (type !== undefined) {
+      return { declaration, type, parameters: [] }
+    }
+  }
+  return undefined
+}
+
+function typedefToTypeNode(
+  declaration: ts.Declaration,
+): ts.TypeNode | undefined {
+  if (
+    !ts.isJSDocTypedefTag(declaration) ||
+    declaration.typeExpression === undefined ||
+    !ts.isJSDocTypeExpression(declaration.typeExpression) ||
+    ts.isTypeLiteralNode(unparenthesized(declaration.typeExpression.type))
+  ) {
+    return undefined
+  }
+  return declaration.typeExpression.type
+}
+
+function isReference(typeNode: ts.TypeNode): typeNode is Reference {
+  return (
+    ts.isTypeReferenceNode(typeNode) ||
+    (ts.isImportTypeNode(typeNode) && !typeNode.isTypeOf)
+  )
+}
+
+function referenceToSymbol(
+  reference: Reference,
+  context: SchemaContext,
+): ts.Symbol | undefined {
+  if (ts.isTypeReferenceNode(reference)) {
+    return nodeToSymbol(reference.typeName, context)
+  }
+  const qualifier = reference.qualifier
+  if (qualifier === undefined) {
+    return undefined
+  }
+  if (ts.isQualifiedName(qualifier)) {
+    return nodeToSymbol(qualifier.right, context)
+  }
+  return nodeToSymbol(qualifier, context)
 }
 
 function typeNodeToBound(
@@ -691,11 +800,15 @@ function memberToClass(
   member: ts.TypeNode,
   context: SchemaContext,
 ): ts.Symbol | undefined {
-  if (!ts.isTypeReferenceNode(member) || member.typeArguments) {
+  if (!isReference(member) || member.typeArguments) {
     return undefined
   }
-  const symbol = nodeToSymbol(member.typeName, context)
-  if (symbol === undefined || (symbol.flags & ts.SymbolFlags.Class) === 0) {
+  const symbol = referenceToSymbol(member, context)
+  if (
+    symbol === undefined ||
+    ((symbol.flags & ts.SymbolFlags.Class) === 0 &&
+      symbolToSchemaName(symbol, context) === undefined)
+  ) {
     return undefined
   }
   return symbol
@@ -719,8 +832,8 @@ function isNumericLiteralType(typeNode: ts.TypeNode): boolean {
   )
 }
 
-function numericLiteralMessage(text: string): string {
-  return `cannot translate numeric literal type "${text}": use string literals or declare it with @BidirektField({ type })`
+function numericLiteralMessage(text: string, hints: FormHints): string {
+  return `cannot translate numeric literal type "${text}": use string literals or declare it with ${hints.declareType}`
 }
 
 function unparenthesized(typeNode: ts.TypeNode): ts.TypeNode {

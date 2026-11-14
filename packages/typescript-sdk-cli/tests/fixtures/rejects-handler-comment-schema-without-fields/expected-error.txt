@@ -1,0 +1,3 @@
+health.ts:5 schema "Health" has no field: annotate at least one field with "@bidirekt field"
+health.ts:15 schema "Unused" has no field: annotate at least one field with "@bidirekt field"
+health.ts:24 field "since" in a handler's comment needs its type: declare it with "type=<type>"

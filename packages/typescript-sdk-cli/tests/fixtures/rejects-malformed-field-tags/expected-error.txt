@@ -1,0 +1,16 @@
+pets.js:1 cannot read "Pet" in "@bidirekt schema": write "name=<name>"
+pets.js:4 cannot name an anonymous class: declare it with "@bidirekt schema name=<name>"
+pets.js:9 cannot read "kind=integer" in "@bidirekt field": write "<key>=<value>" with key type, name, optional, nullable, description or union
+pets.js:12 cannot read "integer" in "@bidirekt field": write "<key>=<value>" with key type, name, optional, nullable, description or union
+pets.js:15 cannot read "type=map<integer" in "@bidirekt field": write "type=" followed by string, integer, float, number, boolean, a schema name, <type>[] or map<type>
+pets.js:18 cannot read "optional=yes" in "@bidirekt field": write "optional=true" or "optional=false"
+pets.js:21 cannot read "nullable=1" in "@bidirekt field": write "nullable=true" or "nullable=false"
+pets.js:24 cannot read "name=" in "@bidirekt field": write "name=<name>"
+pets.js:27 cannot read "description=""" in "@bidirekt field": write description="<text>"
+pets.js:30 cannot read "union=card" in "@bidirekt field": write "union={<key>: <schema>, ...}"
+pets.js:33 cannot read "union={card: CardPayment, card: PixPayment}" in "@bidirekt field": write "union={<key>: <schema>, ...}"
+pets.js:36 "name=" is declared more than once in "@bidirekt field": keep one
+pets.js:39 declare either "type=" or "union=" in "@bidirekt field", not both
+pets.js:44 "@bidirekt field" is declared more than once in this comment: keep one
+pets.js:50 schema "Card" is not declared: reference a schema by its name in the contract
+pets.js:53 cannot read the type of "notes": write its type or declare it with "@bidirekt field type=<type>" or a JSDoc @type
