@@ -1,0 +1,5 @@
+pets.ts:26 warning: this comment is not above a statement or declaration, so its "@bidirekt" tags are not read: move it above the statement or declaration, before its decorators
+pets.ts:32 warning: this comment is not above a statement or declaration, so its "@bidirekt" tags are not read: move it above the statement or declaration, before its decorators
+pets.ts:34 warning: this comment is not above a statement or declaration, so its "@bidirekt" tags are not read: move it above the statement or declaration, before its decorators
+pets.ts:37 warning: this comment is not above a statement or declaration, so its "@bidirekt" tags are not read: move it above the statement or declaration, before its decorators
+pets.ts:41 warning: this comment is not above a statement or declaration, so its "@bidirekt" tags are not read: move it above the statement or declaration, before its decorators

@@ -1,0 +1,2 @@
+levels.ts:1 warning: "@bidirekt schema" is above enum "Level", which has no string members, so it is not read: make its members strings
+levels.ts:7 warning: "@bidirekt schema" is above enum "Unset", which has no string members, so it is not read: make its members strings

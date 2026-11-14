@@ -1,0 +1,4 @@
+typos.ts:2 warning: "@Bidirekt" is not a @bidirekt tag: write "@bidirekt <keyword>"
+typos.ts:3 warning: "@BIDIREKT" is not a @bidirekt tag: write "@bidirekt <keyword>"
+typos.ts:8 warning: "@bidirektfield" is not a @bidirekt tag: write "@bidirekt <keyword>"
+typos.ts:9 warning: "@bidirekt:" is not a @bidirekt tag: write "@bidirekt <keyword>"

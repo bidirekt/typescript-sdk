@@ -1,0 +1,1 @@
+pets.ts:9 warning: "@bidirekt schema" is not above an enum, so it is not read: put it above an enum

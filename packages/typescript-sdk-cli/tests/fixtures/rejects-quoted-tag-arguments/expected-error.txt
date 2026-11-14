@@ -1,0 +1,8 @@
+pets.ts:2 cannot read "@bidirekt provides GET "/pets/by name"": write "@bidirekt provides <METHOD> <path>"
+pets.ts:7 cannot read "name="Pet" in "@bidirekt schema": write "name=<name>"
+pets.ts:12 cannot read "name="Size"" in "@bidirekt schema": write "name=<name>"
+pets.ts:18 cannot read "@bidirekt provides GET "/pets"": write "@bidirekt provides <METHOD> <path>"
+pets.ts:24 cannot read "@bidirekt consumes "payments_api" GET /charges": write "@bidirekt consumes <provider> <METHOD> <path>"
+pets.ts:31 cannot read ""Status"" as a body: write "<schema>", "<schema>[]" or "<schema>[] as <name>"
+pets.ts:32 cannot read ""Status"" as a body: write "<schema>", "<schema>[]" or "<schema>[] as <name>"
+pets.ts:33 cannot read "Status[] as "Statuses"" as a body: write "<schema>", "<schema>[]" or "<schema>[] as <name>"

@@ -1,5 +1,5 @@
 import ts from 'typescript'
-import type { SchemaNode } from '../model/contract.ts'
+import type { NamedSchema, SchemaNode } from '../model/contract.ts'
 import { isDiagnostic } from '../model/diagnostic.ts'
 import type { Diagnostic } from '../model/diagnostic.ts'
 import { nodeToLocation } from './location.ts'
@@ -467,6 +467,21 @@ function enumToTranslatedType(
   symbol: ts.Symbol,
   context: SchemaContext,
 ): TranslatedType | Diagnostic {
+  const schema = enumToNamedSchema(symbol, symbol.name, context)
+  if (schema === undefined) {
+    return { node: { type: 'integer' }, optional: false }
+  }
+  if (isDiagnostic(schema)) {
+    return schema
+  }
+  return { node: { type: 'ref', schema: schema.name }, optional: false }
+}
+
+export function enumToNamedSchema(
+  symbol: ts.Symbol,
+  name: string,
+  context: SchemaContext,
+): NamedSchema | Diagnostic | undefined {
   const declarations = (symbol.declarations ?? []).filter(ts.isEnumDeclaration)
   const values = declarations.flatMap((declaration) =>
     declaration.members.map((member) =>
@@ -474,7 +489,7 @@ function enumToTranslatedType(
     ),
   )
   if (values.every((value) => typeof value === 'number')) {
-    return { node: { type: 'integer' }, optional: false }
+    return undefined
   }
   const members = values.filter((value) => typeof value === 'string')
   if (members.length !== values.length) {
@@ -483,14 +498,17 @@ function enumToTranslatedType(
     }
   }
   const [first] = declarations
-  if (!context.namedSchemas.has(first)) {
-    context.namedSchemas.set(first, {
-      name: symbol.name,
-      node: { type: 'enum', members: [...new Set(members)] },
-      location: nodeToLocation(first.name),
-    })
+  const registered = context.namedSchemas.get(first)
+  if (registered !== undefined) {
+    return registered
   }
-  return { node: { type: 'ref', schema: symbol.name }, optional: false }
+  const schema: NamedSchema = {
+    name,
+    node: { type: 'enum', members: [...new Set(members)] },
+    location: nodeToLocation(first.name),
+  }
+  context.namedSchemas.set(first, schema)
+  return schema
 }
 
 function enumMemberToTranslatedType(

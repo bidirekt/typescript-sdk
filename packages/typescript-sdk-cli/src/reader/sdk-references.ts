@@ -53,6 +53,10 @@ const decoratorTargets: Record<SdkExportName, DecoratorTarget> = {
   },
 }
 
+export function isSdkExportName(name: string): name is SdkExportName {
+  return Object.hasOwn(decoratorTargets, name)
+}
+
 export function programToSdkReferences(
   projectProgram: ProjectProgram,
 ): Array<SdkReference> {

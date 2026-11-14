@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
 import {
   cpSync,
   existsSync,
@@ -44,6 +45,11 @@ function filesUnder(directory: string): Map<string, string> {
   )
 }
 
+function runEntry(cwd: string, entry: string): void {
+  const run = spawnSync(process.execPath, [entry], { cwd, encoding: 'utf8' })
+  assert.equal(run.status, 0, `node ${entry} exits 0: ${run.stderr}`)
+}
+
 const cases = readdirSync(fixtures, { withFileTypes: true })
   .filter((entry) => entry.isDirectory())
   .map((entry) => entry.name)
@@ -87,6 +93,10 @@ describe('fixtures', () => {
         expectedYaml,
         'output',
       )
+      const entry = readIfExists(join(cwd, 'run.txt'))?.trim()
+      if (entry !== undefined) {
+        runEntry(cwd, entry)
+      }
     })
   }
 })
