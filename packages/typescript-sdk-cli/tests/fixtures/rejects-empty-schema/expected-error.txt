@@ -1,0 +1,2 @@
+pet.ts:4 schema "Empty" has no field: annotate at least one field with @BidirektField
+pet.ts:7 schema "Pet" has no field: annotate at least one field with @BidirektField

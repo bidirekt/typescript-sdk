@@ -1,0 +1,1 @@
+pet.ts:7 "name" must be a string literal written in place

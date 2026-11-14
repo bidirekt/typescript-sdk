@@ -1,0 +1,2 @@
+pet.ts:4 warning: BidirektField is not written as a decorator, so it is not read: write @BidirektField() on a property
+pet.ts:16 warning: BidirektField is not written as a decorator, so it is not read: write @BidirektField() on a property

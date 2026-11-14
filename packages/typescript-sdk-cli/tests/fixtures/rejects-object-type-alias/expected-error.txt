@@ -1,0 +1,1 @@
+pet.ts:10 cannot translate object type "Address": declare a class with @BidirektSchema and use it as the type

@@ -1,0 +1,1 @@
+pet.ts:7 @BidirektField options must be an object literal written in place

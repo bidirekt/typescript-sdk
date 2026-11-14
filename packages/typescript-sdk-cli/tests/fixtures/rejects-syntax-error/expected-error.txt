@@ -1,0 +1,2 @@
+owner.ts:7 syntax error: '}' expected: fix the code so TypeScript can parse it
+pet.ts:11 syntax error: type expected: fix the code so TypeScript can parse it

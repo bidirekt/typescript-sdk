@@ -1,0 +1,3 @@
+src/pet.ts:11 class "Owner" comes from "packages/dto/lib/index.d.ts", which has no decorators: point the package's "types" or "exports" at its source
+src/pet.ts:13 class "Card" comes from "packages/dto/lib/index.d.ts", which has no decorators: point the package's "types" or "exports" at its source
+src/pet.ts:21 class "Owner" comes from "packages/dto/lib/index.d.ts", which has no decorators: point the package's "types" or "exports" at its source

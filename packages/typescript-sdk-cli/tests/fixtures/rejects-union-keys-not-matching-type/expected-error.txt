@@ -1,0 +1,4 @@
+order.ts:24 the "union" of @BidirektField lists "Boleto", which is not in "Card | Pix": remove its key or add it to the type
+order.ts:27 the "union" of @BidirektField misses "Pix" of "Card | Pix": add a key for it
+order.ts:30 the "union" of @BidirektField lists "Card" more than once: keep one key for it
+order.ts:33 the "union" of @BidirektField misses "Pix" of "Card | Pix": add a key for it

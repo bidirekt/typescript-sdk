@@ -1,0 +1,1 @@
+no @bidirekt/typescript-sdk annotation found in "tsconfig.json": nothing to generate

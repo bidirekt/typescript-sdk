@@ -1,0 +1,1 @@
+pet.ts:6 cannot translate numeric literal type "1 | 2": use string literals or declare it with @BidirektField({ type })

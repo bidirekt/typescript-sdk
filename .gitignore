@@ -4,3 +4,6 @@ dist
 .DS_Store
 packages/*/README.md
 packages/*/LICENSE
+!packages/typescript-sdk-cli/tests/fixtures/*/dist/
+!packages/typescript-sdk-cli/tests/fixtures/*/node_modules/
+!packages/typescript-sdk-cli/tests/fixtures/*/packages/*/dist/

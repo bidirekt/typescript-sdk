@@ -1,0 +1,1 @@
+pet.ts:6 cannot translate inline object type "{ street: string }": declare a class with @BidirektSchema and use it as the type

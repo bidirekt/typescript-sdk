@@ -1,0 +1,2 @@
+pets.ts:14 "GET /pets/*" is provided by more than one handler: declare each method and path in one handler
+pets.ts:19 "GET /pets/*" is provided by more than one handler: declare each method and path in one handler

@@ -1,0 +1,3 @@
+pet.ts:7 "name" is empty: write a name or leave "name" out
+pet.ts:15 "name" is empty: write a name or leave "name" out
+pet.ts:23 "name" is empty: write a name or leave "name" out

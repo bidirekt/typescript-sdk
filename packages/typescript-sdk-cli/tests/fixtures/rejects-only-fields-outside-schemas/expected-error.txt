@@ -1,0 +1,2 @@
+pet.ts:4 warning: @BidirektField is in class "Pet", which is neither a schema nor the parent of one, so it is not read: add @BidirektSchema to the class
+no @bidirekt/typescript-sdk annotation found in "tsconfig.json": nothing to generate

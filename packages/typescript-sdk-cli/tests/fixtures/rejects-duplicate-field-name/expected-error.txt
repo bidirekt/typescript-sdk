@@ -1,0 +1,2 @@
+pet.ts:6 field "created_at" is declared more than once in schema "Pet": give each field a distinct name
+pet.ts:9 field "created_at" is declared more than once in schema "Pet": give each field a distinct name

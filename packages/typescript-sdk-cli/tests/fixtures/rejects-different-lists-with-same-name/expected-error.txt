@@ -1,0 +1,2 @@
+pet.ts:20 lists named "Residents" differ: give each list a distinct name
+pet.ts:23 lists named "Residents" differ: give each list a distinct name

@@ -1,0 +1,1 @@
+pet.ts:12 declare either "type" or "union" in @BidirektField, not both

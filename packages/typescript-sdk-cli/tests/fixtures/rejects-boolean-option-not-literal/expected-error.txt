@@ -1,0 +1,1 @@
+pet.ts:7 "optional" must be true or false written in place

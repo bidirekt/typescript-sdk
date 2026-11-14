@@ -1,0 +1,2 @@
+pet.ts:5 field "id" is declared more than once in schema "Pet": give each field a distinct name
+pet.ts:11 field "id" is declared more than once in schema "Pet": give each field a distinct name

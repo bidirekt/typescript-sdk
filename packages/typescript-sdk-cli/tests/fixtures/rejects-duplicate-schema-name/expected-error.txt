@@ -1,0 +1,2 @@
+animal.ts:4 schema name "Pet" is declared more than once: give each schema a distinct name
+pet.ts:4 schema name "Pet" is declared more than once: give each schema a distinct name

@@ -1,0 +1,1 @@
+pet.ts:18 cannot translate union of classes "CardPayment | PixPayment": declare each member's key with @BidirektField({ union })

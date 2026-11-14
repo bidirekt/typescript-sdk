@@ -1,0 +1,2 @@
+pets.ts:14 list name "PetList" is also the name of another schema: give the list a distinct name
+pets.ts:20 list name "PetList" is also the name of another schema: give the list a distinct name

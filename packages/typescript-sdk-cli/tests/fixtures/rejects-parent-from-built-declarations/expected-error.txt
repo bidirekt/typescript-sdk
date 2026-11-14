@@ -1,0 +1,1 @@
+src/pet.ts:5 class "Entity" comes from "packages/dto/lib/index.d.ts", which has no decorators: point the package's "types" or "exports" at its source

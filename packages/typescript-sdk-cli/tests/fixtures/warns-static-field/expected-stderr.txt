@@ -1,0 +1,1 @@
+pet.ts:5 warning: @BidirektField is on a static property, so it is not read: put it on a property

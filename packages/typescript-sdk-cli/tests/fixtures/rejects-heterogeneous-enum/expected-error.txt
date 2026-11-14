@@ -1,0 +1,1 @@
+pet.ts:11 cannot translate enum "Status" with string and numeric members: make all its members strings or all numbers
