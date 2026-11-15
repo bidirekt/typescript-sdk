@@ -1,0 +1,2 @@
+pets.ts:10 method "get" must be uppercase: write "GET"
+pets.ts:16 method "Post" must be uppercase: write "POST"

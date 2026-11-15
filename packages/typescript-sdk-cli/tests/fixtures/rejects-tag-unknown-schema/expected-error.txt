@@ -1,0 +1,3 @@
+pets.ts:11 schema "Pet" is not declared: reference a schema by its name in the contract
+pets.ts:17 schema "NewPet" is not declared: reference a schema by its name in the contract
+pets.ts:24 schema "Puppy" is not declared: reference a schema by its name in the contract

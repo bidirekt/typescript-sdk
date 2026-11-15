@@ -5,6 +5,7 @@ import type {
   NamedSchema,
   ProvidedResource,
   Response,
+  SourceLocation,
 } from '../model/contract.ts'
 import { isDiagnostic } from '../model/diagnostic.ts'
 import type { Diagnostic } from '../model/diagnostic.ts'
@@ -46,6 +47,16 @@ const handlerOptions: Record<HandlerAnnotation, Array<string>> = {
   BidirektConsumer: ['provider', 'method', 'path', 'request', 'responses'],
 }
 
+export function isHandlerDecorator(
+  reference: SdkReference,
+): reference is SdkReference & { use: 'decorator'; name: HandlerAnnotation } {
+  return (
+    reference.use === 'decorator' &&
+    (reference.name === 'BidirektProvider' ||
+      reference.name === 'BidirektConsumer')
+  )
+}
+
 export function sdkReferencesToResources(
   references: Array<SdkReference>,
   context: SchemaContext,
@@ -56,14 +67,7 @@ export function sdkReferencesToResources(
     schemas: [],
     errors: [],
   }
-  for (const reference of references) {
-    if (
-      reference.use !== 'decorator' ||
-      (reference.name !== 'BidirektProvider' &&
-        reference.name !== 'BidirektConsumer')
-    ) {
-      continue
-    }
+  for (const reference of references.filter(isHandlerDecorator)) {
     const { name, call } = reference
     const what = `@${name}`
     const options = expressionToLiteralOptions(
@@ -87,22 +91,43 @@ export function sdkReferencesToResources(
     if (name === 'BidirektConsumer') {
       provider = withoutDiagnostic(requiredString(handler, 'provider'), handler)
     }
-    const resource = handlerToResource(handler)
+    const declared = handlerToDeclared(handler)
     read.errors.push(...handler.errors)
-    if (resource === undefined) {
+    if (declared === undefined) {
       continue
     }
-    read.schemas.push(...handler.derived)
-    if (provider === undefined) {
-      read.provides.push(resource)
-    } else {
-      read.consumes.push({ ...resource, provider })
-    }
+    declaredToRead({ ...declared, provider }, handler.derived, read)
   }
   return read
 }
 
-function handlerToResource(handler: HandlerRead): ProvidedResource | undefined {
+export type DeclaredResource = {
+  provider?: string
+  method: string
+  path: string
+  request?: Body
+  responses: Array<Response>
+  location: SourceLocation
+}
+
+export function declaredToRead(
+  { provider, request, ...rest }: DeclaredResource,
+  derived: Array<NamedSchema>,
+  read: ReadResources,
+): void {
+  read.schemas.push(...derived)
+  const resource: ProvidedResource = rest
+  if (request !== undefined) {
+    resource.request = request
+  }
+  if (provider === undefined) {
+    read.provides.push(resource)
+    return
+  }
+  read.consumes.push({ ...resource, provider })
+}
+
+function handlerToDeclared(handler: HandlerRead): DeclaredResource | undefined {
   const method = withoutDiagnostic(handlerToMethod(handler), handler)
   const path = withoutDiagnostic(requiredString(handler, 'path'), handler)
   const requestExpression = handler.options.get('request')
@@ -117,27 +142,55 @@ function handlerToResource(handler: HandlerRead): ProvidedResource | undefined {
   if (method === undefined || path === undefined || handler.errors.length > 0) {
     return undefined
   }
-  const resource: ProvidedResource = {
+  return {
     method,
     path,
+    request,
     responses,
     location: nodeToLocation(handler.call),
   }
-  if (request !== undefined) {
-    resource.request = request
-  }
-  return resource
 }
 
 function handlerToMethod(handler: HandlerRead): string | Diagnostic {
   const method = requiredString(handler, 'method')
-  if (isDiagnostic(method) || method === method.toUpperCase()) {
+  if (isDiagnostic(method)) {
     return method
+  }
+  return (
+    methodToUppercaseDiagnostic(
+      method,
+      nodeToLocation(handler.options.get('method') ?? handler.call),
+    ) ?? method
+  )
+}
+
+export function methodToUppercaseDiagnostic(
+  method: string,
+  location: SourceLocation,
+): Diagnostic | undefined {
+  if (method === method.toUpperCase()) {
+    return undefined
   }
   return {
     message: `method "${method}" must be uppercase: write "${method.toUpperCase()}"`,
-    location: nodeToLocation(handler.options.get('method') ?? handler.call),
+    location,
   }
+}
+
+export function statusToNumberDiagnostic(
+  status: string,
+  location: SourceLocation,
+): Diagnostic | undefined {
+  if (!/^[0-9]+$/.test(status)) {
+    return { message: `response status "${status}" must be a number`, location }
+  }
+  if (String(Number(status)) !== status) {
+    return {
+      message: `response status "${status}" must be written as ${Number(status)}`,
+      location,
+    }
+  }
+  return undefined
 }
 
 function handlerToResponses(handler: HandlerRead): Array<Response> {
@@ -162,18 +215,9 @@ function handlerToResponses(handler: HandlerRead): Array<Response> {
   }
   const responses: Array<Response> = []
   for (const [status, value] of statuses) {
-    if (!/^[0-9]+$/.test(status)) {
-      handler.errors.push({
-        message: `response status "${status}" must be a number`,
-        location: nodeToLocation(value),
-      })
-      continue
-    }
-    if (String(Number(status)) !== status) {
-      handler.errors.push({
-        message: `response status "${status}" must be written as ${Number(status)}`,
-        location: nodeToLocation(value),
-      })
+    const number = statusToNumberDiagnostic(status, nodeToLocation(value))
+    if (number !== undefined) {
+      handler.errors.push(number)
       continue
     }
     const body = withoutDiagnostic(expressionToBody(value, handler), handler)
