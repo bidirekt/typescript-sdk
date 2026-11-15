@@ -1,0 +1,1 @@
+pet.ts:6 cannot translate "Record<number, string>": declare its key as string

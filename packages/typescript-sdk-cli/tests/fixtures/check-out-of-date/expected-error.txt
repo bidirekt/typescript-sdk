@@ -1,0 +1,1 @@
+"contracts/generated.yaml" is out of date: run generate without --check

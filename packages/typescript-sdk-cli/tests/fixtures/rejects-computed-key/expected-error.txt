@@ -1,0 +1,3 @@
+payments.ts:31 union key "[PaymentKind.Card]" must be written in place: write card
+payments.ts:39 response status "[HttpStatus.Ok]" must be a number written in place: write 200
+payments.ts:46 response status "[statusOf('ok')]" must be a number written in place: write the number

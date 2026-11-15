@@ -1,0 +1,1 @@
+pets.ts:19 "200" is declared more than once in "responses": keep one

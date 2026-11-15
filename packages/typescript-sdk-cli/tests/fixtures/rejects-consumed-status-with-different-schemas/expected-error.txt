@@ -1,0 +1,2 @@
+clients.ts:20 response 200 of "GET /charges/*" consumed from "payments_api" is declared as "Charge" and "ChargeSummary": declare one schema with every field the service reads
+clients.ts:25 response 200 of "GET /charges/*" consumed from "payments_api" is declared as "Charge" and "ChargeSummary": declare one schema with every field the service reads

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-process.stderr.write(
-  'Usage: typescript-sdk generate [--check] [--project <tsconfig>] [--out <file>]\n',
-)
-process.exitCode = 1
+import { runCommand } from './command.ts'
+
+const result = runCommand(process.argv.slice(2), process.cwd())
+process.stderr.write(result.stderr)
+process.exitCode = result.exitCode

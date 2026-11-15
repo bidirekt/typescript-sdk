@@ -1,0 +1,4 @@
+pet.ts:8 cannot read type "date": write string, integer, float, number, boolean, <type>[] or map<type>
+pet.ts:12 cannot read type "map<string, integer>": write string, integer, float, number, boolean, <type>[] or map<type>
+pet.ts:16 cannot read type "Owner": write string, integer, float, number, boolean, <type>[] or map<type>
+pet.ts:19 "type" must be a string literal written in place

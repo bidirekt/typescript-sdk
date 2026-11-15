@@ -1,0 +1,2 @@
+clients.ts:20 request of "POST /charges" consumed from "payments_api" is declared as "NewCharge" and "RetriedCharge": declare the same request in every handler
+clients.ts:25 request of "POST /charges" consumed from "payments_api" is declared as "NewCharge" and "RetriedCharge": declare the same request in every handler

@@ -1,0 +1,1 @@
+pet.ts:20 cannot translate generic type "Page<Owner>": declare a non-generic class with @BidirektSchema and use it as the type

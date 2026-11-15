@@ -1,0 +1,3 @@
+pet.ts:6 cannot translate "string | undefined" to a contract type: declare it with @BidirektField({ type })
+pet.ts:9 cannot translate "string | undefined" to a contract type: declare it with @BidirektField({ type })
+pet.ts:12 cannot translate "string | undefined" to a contract type: declare it with @BidirektField({ type })

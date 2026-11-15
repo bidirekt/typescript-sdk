@@ -1,0 +1,2 @@
+pet.ts:20 cannot read the parent "Timestamped(Pet)" of class "Dog": declare its fields
+pet.ts:29 cannot read the parent "Base" of class "Cat": declare its fields

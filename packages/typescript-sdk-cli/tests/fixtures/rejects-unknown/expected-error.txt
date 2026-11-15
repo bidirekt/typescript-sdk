@@ -1,0 +1,1 @@
+pet.ts:6 cannot translate "unknown" to a contract type: declare it with @BidirektField({ type })

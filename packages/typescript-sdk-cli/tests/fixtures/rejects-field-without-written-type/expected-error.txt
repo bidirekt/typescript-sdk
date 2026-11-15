@@ -1,0 +1,2 @@
+pet.js:6 cannot read the type of "name": write its type or declare it with @BidirektField({ type })
+pet.js:9 cannot read the type of "count": write its type or declare it with @BidirektField({ type })

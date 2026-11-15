@@ -1,0 +1,1 @@
+pet.ts:12 cannot place the "union" of @BidirektField in "string": write a union of classes as its type, its items or its values

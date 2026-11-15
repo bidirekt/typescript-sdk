@@ -1,0 +1,2 @@
+pets.ts:7 unknown option "nmae" in @BidirektSchema options: write name
+pets.ts:13 "name" is empty: write a name or leave "name" out

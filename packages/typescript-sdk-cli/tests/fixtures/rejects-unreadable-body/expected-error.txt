@@ -1,0 +1,5 @@
+pets.ts:15 cannot read "'Pet'" as a body: write a @BidirektSchema class, null, [Schema] or { list: Schema, name: '<name>' }
+pets.ts:19 cannot read "[Pet, Pet]" as a body: write a @BidirektSchema class, null, [Schema] or { list: Schema, name: '<name>' }
+pets.ts:23 cannot read "{ items: Pet, name: 'Featured' }" as a body: write a @BidirektSchema class, null, [Schema] or { list: Schema, name: '<name>' }
+pets.ts:26 cannot translate class "Owner": add @BidirektSchema to it
+pets.ts:29 cannot translate class "Owner": add @BidirektSchema to it

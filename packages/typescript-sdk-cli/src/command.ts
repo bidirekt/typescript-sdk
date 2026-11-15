@@ -1,0 +1,185 @@
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
+import { parseArgs } from 'node:util'
+import type { Contract } from './model/contract.ts'
+import type { Diagnostic } from './model/diagnostic.ts'
+import { pathToShown } from './reader/location.ts'
+import { projectToContract } from './reader/project-to-contract.ts'
+import type { Project } from './reader/project-to-contract.ts'
+import { contractToYaml } from './writer/contract-to-yaml.ts'
+
+export type CommandResult = {
+  exitCode: 0 | 1
+  stderr: string
+}
+
+const usage =
+  'Usage: typescript-sdk generate [--check] [--project <tsconfig>] [--out <file>]\n'
+
+const defaultOutput = join('contracts', 'generated.yaml')
+
+type GenerateOptions = {
+  check: boolean
+  project?: string
+  out?: string
+}
+
+export function runCommand(args: Array<string>, cwd: string): CommandResult {
+  const options = argsToGenerateOptions(args)
+  if (options === undefined) {
+    return { exitCode: 1, stderr: usage }
+  }
+  return generate(options, cwd)
+}
+
+function argsToGenerateOptions(
+  args: Array<string>,
+): GenerateOptions | undefined {
+  try {
+    const { values, positionals } = parseArgs({
+      args,
+      allowPositionals: true,
+      options: {
+        check: { type: 'boolean', default: false },
+        project: { type: 'string' },
+        out: { type: 'string' },
+      },
+    })
+    if (positionals.length !== 1 || positionals[0] !== 'generate') {
+      return undefined
+    }
+    return values
+  } catch {
+    return undefined
+  }
+}
+
+function generate(options: GenerateOptions, cwd: string): CommandResult {
+  const located = locateProject(options, cwd)
+  if ('message' in located) {
+    return { exitCode: 1, stderr: `${located.message}\n` }
+  }
+  const { project, source, directory } = located
+  const output = resolve(cwd, options.out ?? join(directory, defaultOutput))
+  const read = projectToContract(project, cwd)
+  const diagnostics = [
+    ...read.errors.map((error) => ({ ...error, prefix: '' })),
+    ...read.warnings.map((warning) => ({ ...warning, prefix: 'warning: ' })),
+  ]
+    .sort(compareDiagnostics)
+    .map((diagnostic) => diagnosticToLine(diagnostic, cwd))
+    .join('')
+  if (read.errors.length > 0) {
+    return failure(diagnostics)
+  }
+  if (isEmpty(read.contract)) {
+    return failure(
+      `${diagnostics}no @bidirekt/typescript-sdk annotation found in "${source}": nothing to generate\n`,
+    )
+  }
+  const yaml = contractToYaml(read.contract)
+  const shownOutput = pathToShown(output, cwd)
+  if (options.check) {
+    if (!existsSync(output)) {
+      return failure(
+        `${diagnostics}"${shownOutput}" does not exist: run generate without --check\n`,
+      )
+    }
+    let written: string
+    try {
+      written = readFileSync(output, 'utf8')
+    } catch (error) {
+      return failure(
+        `${diagnostics}cannot read "${shownOutput}": ${errorToReason(error)}\n`,
+      )
+    }
+    if (written.replaceAll('\r\n', '\n') !== yaml) {
+      return failure(
+        `${diagnostics}"${shownOutput}" is out of date: run generate without --check\n`,
+      )
+    }
+    return { exitCode: 0, stderr: diagnostics }
+  }
+  try {
+    mkdirSync(dirname(output), { recursive: true })
+    writeFileSync(output, yaml)
+  } catch (error) {
+    return failure(
+      `${diagnostics}cannot write "${shownOutput}": ${errorToReason(error)}\n`,
+    )
+  }
+  return { exitCode: 0, stderr: diagnostics }
+}
+
+type LocatedProject = {
+  project: Project
+  source: string
+  directory: string
+}
+
+function locateProject(
+  options: GenerateOptions,
+  cwd: string,
+): LocatedProject | Diagnostic {
+  if (options.project !== undefined) {
+    const configFile = resolve(cwd, options.project)
+    if (!existsSync(configFile)) {
+      return { message: `project "${options.project}" not found` }
+    }
+    return configFileToLocatedProject(configFile, cwd)
+  }
+  for (const name of ['tsconfig.json', 'jsconfig.json']) {
+    const configFile = join(cwd, name)
+    if (existsSync(configFile)) {
+      return configFileToLocatedProject(configFile, cwd)
+    }
+  }
+  return { project: { directory: cwd }, source: '.', directory: cwd }
+}
+
+function configFileToLocatedProject(
+  configFile: string,
+  cwd: string,
+): LocatedProject {
+  return {
+    project: { configFile },
+    source: pathToShown(configFile, cwd),
+    directory: dirname(configFile),
+  }
+}
+
+function isEmpty({ provides, consumes, schemas }: Contract): boolean {
+  return provides.length + consumes.length + schemas.length === 0
+}
+
+function failure(stderr: string): CommandResult {
+  return { exitCode: 1, stderr }
+}
+
+function errorToReason(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message
+  }
+  return String(error)
+}
+
+function compareDiagnostics(a: Diagnostic, b: Diagnostic): number {
+  const fileOrder = Buffer.compare(
+    Buffer.from(a.location?.file ?? ''),
+    Buffer.from(b.location?.file ?? ''),
+  )
+  if (fileOrder !== 0) {
+    return fileOrder
+  }
+  return (a.location?.line ?? 0) - (b.location?.line ?? 0)
+}
+
+function diagnosticToLine(
+  { location, prefix, message }: Diagnostic & { prefix: string },
+  cwd: string,
+): string {
+  if (location === undefined) {
+    return `${prefix}${message}\n`
+  }
+  return `${pathToShown(location.file, cwd)}:${location.line} ${prefix}${message}\n`
+}

@@ -1,0 +1,1 @@
+pet.ts:6 cannot translate "any" to a contract type: declare it with @BidirektField({ type })
