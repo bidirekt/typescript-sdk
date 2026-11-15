@@ -1,0 +1,24 @@
+{
+  "name": "typescript-sdk",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/typescript-sdk",
+    "packages/typescript-sdk-cli"
+  ],
+  "scripts": {
+    "check": "prettier --check .",
+    "format": "prettier --write .",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "build": "npm run build --workspaces",
+    "test": "npm test --workspaces"
+  },
+  "devDependencies": {
+    "@tanstack/eslint-config": "^0.4.0",
+    "@types/node": "^24.19.2",
+    "eslint": "^10.14.0",
+    "prettier": "^3.9.10",
+    "typescript": "~6.0.3"
+  }
+}

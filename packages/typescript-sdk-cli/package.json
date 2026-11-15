@@ -1,0 +1,31 @@
+{
+  "name": "@bidirekt/typescript-sdk-cli",
+  "version": "0.0.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bidirekt/typescript-sdk.git",
+    "directory": "packages/typescript-sdk-cli"
+  },
+  "type": "module",
+  "bin": {
+    "typescript-sdk": "dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "build": "node -e \"fs.rmSync('dist', { recursive: true, force: true })\" && tsc -p tsconfig.build.json",
+    "test": "node --test \"tests/**/*.test.ts\"",
+    "prepack": "node -e \"for (const file of ['README.md', 'LICENSE']) fs.copyFileSync('../../' + file, file)\"",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@bidirekt/typescript-sdk": "0.0.0",
+    "typescript": "~6.0.3",
+    "yaml": "^2.9.1"
+  }
+}
