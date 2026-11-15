@@ -1,0 +1,4 @@
+pets.ts:24 warning: "@bidirekt field" is in class "Shelter", which is neither a schema nor the parent of one, so it is not read: add "@bidirekt schema" above it
+pets.ts:29 warning: "@bidirekt field" is in interface "Vet", which is neither a schema nor the parent of one, so it is not read: add "@bidirekt schema" above it
+pets.ts:34 warning: "@bidirekt field" is in type "Toy", which is neither a schema nor the parent of one, so it is not read: add "@bidirekt schema" above it
+pets.ts:39 warning: "@bidirekt field" is in an inline object type, so it is not read: move the field to a class, an interface or an object type with "@bidirekt schema" above it

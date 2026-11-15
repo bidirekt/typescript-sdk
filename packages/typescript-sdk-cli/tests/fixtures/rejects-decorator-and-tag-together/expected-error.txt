@@ -1,0 +1,2 @@
+pet.ts:4 @BidirektSchema and "@bidirekt schema" are both on this class: keep one
+pet.ts:7 @BidirektField and "@bidirekt field" are both on this property: keep one

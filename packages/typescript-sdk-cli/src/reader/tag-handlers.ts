@@ -2,14 +2,15 @@ import type ts from 'typescript'
 import type {
   Body,
   NamedSchema,
+  Property,
   Response,
   SourceLocation,
 } from '../model/contract.ts'
 import { isDiagnostic } from '../model/diagnostic.ts'
 import type { Diagnostic } from '../model/diagnostic.ts'
 import { listToNamedSchema } from '../model/schema-names.ts'
-import { tagToText } from './comment-tags.ts'
-import type { CommentTag, TaggedComment } from './comment-tags.ts'
+import { isHandlerTag, tagToText } from './comment-tags.ts'
+import type { CommentTag, HandlerTag, TaggedComment } from './comment-tags.ts'
 import {
   declaredToRead,
   isHandlerDecorator,
@@ -17,9 +18,9 @@ import {
   statusToNumberDiagnostic,
 } from './handler-methods.ts'
 import type { ReadResources } from './handler-methods.ts'
+import { fieldOptionsToNode } from './schema-classes.ts'
 import type { SdkReference } from './sdk-references.ts'
-
-type HandlerTag = CommentTag & { keyword: 'provides' | 'consumes' }
+import { argumentsToOptions, blockFieldKeys } from './tag-schemas.ts'
 
 type Endpoint = {
   provider?: string
@@ -35,7 +36,18 @@ const endpointForms = {
   },
 }
 
-const bodyPattern = /^([^\s[\]"]+)(?:\[\](?: as [^\s[\]"]+)?)?$/
+type BlockFields = {
+  properties: Array<Property>
+  hasUnreadField: boolean
+}
+
+type BlockSchema = {
+  name: string
+  location: SourceLocation
+  fields: BlockFields
+}
+
+const bodyPattern = /^([^\s[\]]+)(?:\[\](?: as [^\s[\]]+)?)?$/
 
 export function taggedCommentsToResources(
   comments: Array<TaggedComment>,
@@ -96,12 +108,102 @@ export function taggedCommentsToResources(
       continue
     }
     tagsToResource(handler, bodies, read)
+    read.schemas.push(...tagsToBlockSchemas(tags, read.errors))
   }
   return read
 }
 
-function isHandlerTag(tag: CommentTag): tag is HandlerTag {
-  return tag.keyword === 'provides' || tag.keyword === 'consumes'
+function tagsToBlockSchemas(
+  tags: Array<CommentTag>,
+  errors: Array<Diagnostic>,
+): Array<NamedSchema> {
+  const blocks: Array<BlockSchema> = []
+  let fields: BlockFields | undefined
+  for (const tag of tags) {
+    if (tag.keyword === 'schema') {
+      fields = { properties: [], hasUnreadField: false }
+      const name = tagToBlockSchemaName(tag)
+      if (isDiagnostic(name)) {
+        errors.push(name)
+        continue
+      }
+      blocks.push({ name, location: tag.location, fields })
+      continue
+    }
+    if (tag.keyword !== 'field') {
+      continue
+    }
+    if (fields === undefined) {
+      errors.push({
+        message:
+          '"@bidirekt field" in a handler\'s comment needs a "@bidirekt schema <name>" above it',
+        location: tag.location,
+      })
+      continue
+    }
+    const property = tagToBlockProperty(tag)
+    if (isDiagnostic(property)) {
+      errors.push(property)
+      fields.hasUnreadField = true
+      continue
+    }
+    fields.properties.push(property)
+  }
+  for (const { name, location, fields: read } of blocks) {
+    if (read.properties.length === 0 && !read.hasUnreadField) {
+      errors.push({
+        message: `schema "${name}" has no field: annotate at least one field with "@bidirekt field"`,
+        location,
+      })
+    }
+  }
+  return blocks.map(({ name, location, fields: read }) => ({
+    name,
+    node: { type: 'object', properties: read.properties },
+    location,
+  }))
+}
+
+function tagToBlockSchemaName(tag: CommentTag): string | Diagnostic {
+  const [name] = tag.arguments
+  if (tag.error !== undefined) {
+    return tag.error
+  }
+  if (tag.arguments.length !== 1 || name.includes('=')) {
+    return {
+      message: `cannot read "${tagToText(tag)}" in a handler's comment: write "@bidirekt schema <name>"`,
+      location: tag.location,
+    }
+  }
+  return name
+}
+
+function tagToBlockProperty(tag: CommentTag): Property | Diagnostic {
+  const [name, ...rest] = tag.arguments
+  if (tag.error !== undefined) {
+    return tag.error
+  }
+  if (tag.arguments.length === 0 || name.includes('=')) {
+    return {
+      message: `cannot read "${tagToText(tag)}" in a handler's comment: write "@bidirekt field <name> type=<type>"`,
+      location: tag.location,
+    }
+  }
+  const options = argumentsToOptions(rest, tag, blockFieldKeys)
+  if (isDiagnostic(options)) {
+    return options
+  }
+  if (options.declared === undefined) {
+    return {
+      message: `field "${name}" in a handler's comment needs its type: declare it with "type=<type>"`,
+      location: tag.location,
+    }
+  }
+  return {
+    name,
+    node: fieldOptionsToNode(options.declared, options),
+    location: tag.location,
+  }
 }
 
 function tagsToResource(
@@ -118,6 +220,10 @@ function tagsToResource(
   let request: Body | undefined
   const responses: Array<Response> = []
   for (const tag of bodies) {
+    if (tag.error !== undefined) {
+      errors.push(tag.error)
+      continue
+    }
     if (tag.keyword === 'request') {
       if (request !== undefined) {
         errors.push({
@@ -154,10 +260,10 @@ function tagsToResource(
 
 function handlerToEndpoint(handler: HandlerTag): Endpoint | Diagnostic {
   const { usage, arguments: count } = endpointForms[handler.keyword]
-  if (
-    handler.arguments.length !== count ||
-    handler.arguments.some((argument) => argument.includes('"'))
-  ) {
+  if (handler.error !== undefined) {
+    return handler.error
+  }
+  if (handler.arguments.length !== count) {
     return {
       message: `cannot read "${tagToText(handler)}": write "${usage}"`,
       location: handler.location,

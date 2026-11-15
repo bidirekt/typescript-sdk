@@ -1,2 +1,2 @@
 pets.ts:2 "@bidirekt schema" is declared more than once on enum "Status": keep one
-pets.ts:7 "name" is declared more than once in "@bidirekt schema": keep one
+pets.ts:7 "name=" is declared more than once in "@bidirekt schema": keep one

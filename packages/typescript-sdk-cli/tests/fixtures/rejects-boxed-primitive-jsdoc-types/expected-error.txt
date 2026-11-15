@@ -1,0 +1,3 @@
+pet.js:5 cannot translate "String" to a contract type: write "string" in lowercase
+pet.js:9 cannot translate "Number" to a contract type: write "number" in lowercase
+pet.js:13 cannot translate "Boolean" to a contract type: write "boolean" in lowercase

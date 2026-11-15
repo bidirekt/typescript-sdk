@@ -1,0 +1,2 @@
+payments.ts:16 the "union=" of "@bidirekt field" lists "PixPayment", which is not in "Card | Pix": write its name in the contract, "Pix"
+payments.ts:22 the "union=" of "@bidirekt field" lists "Boleto", which is not in "Card | Pix": remove its key or add it to the type

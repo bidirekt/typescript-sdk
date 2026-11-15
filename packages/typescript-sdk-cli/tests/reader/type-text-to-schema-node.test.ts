@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { typeTextToSchemaNode } from '../../src/reader/type-text-to-schema-node.ts'
+import {
+  tagTypeTextToSchemaNode,
+  typeTextToSchemaNode,
+} from '../../src/reader/type-text-to-schema-node.ts'
 
 describe('typeTextToSchemaNode', () => {
   it('reads every primitive', () => {
@@ -52,6 +55,33 @@ describe('typeTextToSchemaNode', () => {
       'Array<integer>',
     ]) {
       assert.equal(typeTextToSchemaNode(text), undefined, text)
+    }
+  })
+})
+
+describe('tagTypeTextToSchemaNode', () => {
+  it('reads a schema name alone or inside a list or a map', () => {
+    assert.deepEqual(tagTypeTextToSchemaNode('HealthCheck'), {
+      type: 'ref',
+      schema: 'HealthCheck',
+    })
+    assert.deepEqual(tagTypeTextToSchemaNode('HealthCheck[]'), {
+      type: 'array',
+      items: { type: 'ref', schema: 'HealthCheck' },
+    })
+    assert.deepEqual(tagTypeTextToSchemaNode('map<HealthCheck>'), {
+      type: 'map',
+      values: { type: 'ref', schema: 'HealthCheck' },
+    })
+  })
+
+  it('reads a primitive before a schema name', () => {
+    assert.deepEqual(tagTypeTextToSchemaNode('integer'), { type: 'integer' })
+  })
+
+  it('rejects text that is not a name, a list or a map', () => {
+    for (const text of ['', 'map<integer', 'map<string, integer>', 'a:b']) {
+      assert.equal(tagTypeTextToSchemaNode(text), undefined, text)
     }
   })
 })

@@ -1,0 +1,6 @@
+pets.ts:9 cannot read "@bidirekt field name="petName"": remove the quotes, only description="<text>" takes them
+pets.ts:12 cannot read "@bidirekt field union={card: "Card"}": remove the quotes, only description="<text>" takes them
+pets.ts:15 cannot read "@bidirekt field description=the"tag": remove the quotes, only description="<text>" takes them
+pets.ts:25 cannot read "@bidirekt schema "Health"": remove the quotes, only description="<text>" takes them
+pets.ts:34 cannot read "@bidirekt field "status" type=string": remove the quotes, only description="<text>" takes them
+pets.ts:38 cannot read "@bidirekt schema name="Owner"": remove the quotes, only description="<text>" takes them

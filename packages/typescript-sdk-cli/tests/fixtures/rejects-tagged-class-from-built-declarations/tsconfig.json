@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "paths": {
+      "@acme/dto": ["./packages/dto"]
+    }
+  },
+  "include": ["src"]
+}

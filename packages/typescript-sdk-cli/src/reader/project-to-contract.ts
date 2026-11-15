@@ -9,7 +9,7 @@ import { sdkReferencesToSchemas } from './schema-classes.ts'
 import { programToSchemaContext } from './schema-context.ts'
 import { programToSdkReferences } from './sdk-references.ts'
 import { taggedCommentsToResources } from './tag-handlers.ts'
-import { taggedCommentsToEnumSchemas } from './tag-schemas.ts'
+import { taggedCommentsToSchemaTags } from './tag-schemas.ts'
 
 export type { Project } from './program.ts'
 
@@ -36,8 +36,8 @@ export function projectToContract(project: Project, cwd: string): ReadResult {
   const references = programToSdkReferences(projectProgram)
   const tagged = programToTaggedComments(projectProgram)
   const context = programToSchemaContext(projectProgram.program, cwd)
-  const enumSchemas = taggedCommentsToEnumSchemas(tagged.comments, context)
-  const schemas = sdkReferencesToSchemas(references, context)
+  const schemaTags = taggedCommentsToSchemaTags(tagged.comments, context)
+  const schemas = sdkReferencesToSchemas(references, schemaTags, context)
   const resources = sdkReferencesToResources(references, context)
   const tagResources = taggedCommentsToResources(tagged.comments, references)
   const merged = declarationsToContract({
@@ -54,7 +54,7 @@ export function projectToContract(project: Project, cwd: string): ReadResult {
     errors: [
       ...new Set([...schemas.errors, ...resources.errors]),
       ...tagged.errors,
-      ...enumSchemas.errors,
+      ...schemaTags.errors,
       ...tagResources.errors,
       ...merged.errors,
     ],
@@ -67,7 +67,7 @@ export function projectToContract(project: Project, cwd: string): ReadResult {
       }),
       ...schemas.warnings,
       ...tagged.warnings,
-      ...enumSchemas.warnings,
+      ...schemaTags.warnings,
     ],
   }
 }

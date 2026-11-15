@@ -1,0 +1,1 @@
+pets.ts:7 "@bidirekt schema" is declared more than once on interface "Pet": keep one

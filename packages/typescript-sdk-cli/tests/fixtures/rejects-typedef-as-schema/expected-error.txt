@@ -1,0 +1,3 @@
+pets.js:2 warning: "@bidirekt schema" is on a @typedef, so it is not read: declare the schema as a class with "@bidirekt schema"
+pets.js:11 cannot translate "Address" to a contract type: declare it with "@bidirekt field type=<type>" or a JSDoc @type
+pets.js:15 warning: "@bidirekt schema" is on a @typedef, so it is not read: declare the schema as a class with "@bidirekt schema"

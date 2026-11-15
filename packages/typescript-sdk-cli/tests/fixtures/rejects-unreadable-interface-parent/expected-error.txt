@@ -1,0 +1,3 @@
+pets.ts:13 cannot read the parent "Omit<Pet, 'secret'>" of interface "PublicPet": declare its fields
+pets.ts:19 cannot read the parent "Partial<Pet>" of interface "DraftPet": declare its fields
+pets.ts:25 cannot read the parent "Named" of interface "Tag": declare its fields

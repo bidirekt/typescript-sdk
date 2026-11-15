@@ -1,0 +1,1 @@
+pet.js:9 cannot translate "typeof import('./owner.js').Owner" to a contract type: declare it with "@bidirekt field type=<type>" or a JSDoc @type

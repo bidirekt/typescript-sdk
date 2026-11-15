@@ -8,7 +8,7 @@ pets.ts:34 "@bidirekt request" is declared more than once in this comment: keep 
 pets.ts:41 a comment declares one handler: move "@bidirekt provides GET /pets/sold" to its own comment
 pets.ts:42 cannot read "Pet[] as" as a body: write "<schema>", "<schema>[]" or "<schema>[] as <name>"
 pets.ts:47 "@bidirekt response" needs a "@bidirekt provides" or "@bidirekt consumes" tag in the same comment
-pets.ts:52 "@bidirekt" needs a keyword: use provides, consumes, request, response or schema
-pets.ts:53 unknown tag "@bidirekt handles": use provides, consumes, request, response or schema
+pets.ts:52 "@bidirekt" needs a keyword: use provides, consumes, request, response, schema or field
+pets.ts:53 unknown tag "@bidirekt handles": use provides, consumes, request, response, schema or field
 pets.ts:58 cannot read "Status" in "@bidirekt schema": write "name=<name>"
 pets.ts:66 response status "0200" must be written as 200

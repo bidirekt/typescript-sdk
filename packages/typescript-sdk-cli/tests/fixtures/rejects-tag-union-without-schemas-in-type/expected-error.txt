@@ -1,0 +1,1 @@
+payments.ts:10 cannot place the "union=" of "@bidirekt field" in "string": write a union of classes as its type, its items or its values

@@ -1,0 +1,1 @@
+pet.js:12 warning: "@bidirekt schema" is on a @callback, so it is not read: declare the schema as a class with "@bidirekt schema"

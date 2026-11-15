@@ -1,0 +1,1 @@
+src/pet.ts:5 class "Owner" is declared in "src/owner.d.ts", where only an interface or object type is read: declare it as an interface there, or tag the class in its source

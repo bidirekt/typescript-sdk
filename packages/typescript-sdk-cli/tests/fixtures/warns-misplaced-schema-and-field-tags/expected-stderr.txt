@@ -1,0 +1,5 @@
+pets.ts:9 warning: "@bidirekt schema" is not above an enum, a class, an interface or an object type, so it is not read: put it above one of them
+pets.ts:12 warning: "@bidirekt field" is not above a property, so it is not read: put it above a property of a class, an interface or an object type
+pets.ts:16 warning: "@bidirekt schema" is not above an enum, a class, an interface or an object type, so it is not read: put it above one of them
+pets.ts:19 warning: "@bidirekt field" is not above a property, so it is not read: put it above a property of a class, an interface or an object type
+pets.ts:23 warning: "@bidirekt schema" is not above an enum, a class, an interface or an object type, so it is not read: put it above one of them

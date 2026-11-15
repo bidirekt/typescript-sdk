@@ -5,16 +5,20 @@ import { namesToChoice } from './literal-options.ts'
 import { nodeToLocation } from './location.ts'
 import { programToUserFiles } from './program.ts'
 import type { ProjectProgram } from './program.ts'
+import { isObjectDeclaration, memberToOwner } from './schema-context.ts'
 import { isSdkExportName } from './sdk-references.ts'
 
 export type TagKeyword =
-  'provides' | 'consumes' | 'request' | 'response' | 'schema'
+  'provides' | 'consumes' | 'request' | 'response' | 'schema' | 'field'
 
 export type CommentTag = {
   keyword: TagKeyword
   arguments: Array<string>
   location: SourceLocation
+  error?: Diagnostic
 }
+
+export type HandlerTag = CommentTag & { keyword: 'provides' | 'consumes' }
 
 export type TaggedComment = {
   element: ts.Node
@@ -38,12 +42,19 @@ const taggedCommentPattern = /\/\*\*(?:(?!\*\/)[\s\S])*?@bidirekt/i
 
 const mentionPattern = /(?<![^\s*])(@bidirekt[^\s*]*)[ \t]*([^\s*]*)/gi
 
+const argumentPattern = /description="[^"]*"(?=\s|$)|union=\{[^}]*\}\S*|\S+/g
+
+const quotedValuePattern = /^"[^"]*"$/
+
+const quotedDescriptionPattern = /^description="[^"]*"$/
+
 const keywords: Array<TagKeyword> = [
   'provides',
   'consumes',
   'request',
   'response',
   'schema',
+  'field',
 ]
 
 const keywordList = namesToChoice(keywords)
@@ -68,47 +79,85 @@ export function programToTaggedComments(
     if (!taggedCommentPattern.test(file.text)) {
       continue
     }
-    const attached = new Set<number>()
-    const comments = new Map<number, ts.CommentRange>()
-    const jsxTexts: Array<Span> = []
-    const pending: Array<ts.Node> = [file]
-    for (let node = pending.pop(); node !== undefined; node = pending.pop()) {
-      if (node.kind === ts.SyntaxKind.EndOfFileToken) {
+    const fileRead = fileToTaggedComments(file)
+    if (file.isDeclarationFile) {
+      read.comments.push(...fileRead.comments.flatMap(typeDeclarationComment))
+      continue
+    }
+    read.comments.push(...fileRead.comments)
+    read.errors.push(...fileRead.errors)
+    read.warnings.push(...fileRead.warnings)
+  }
+  return read
+}
+
+function fileToTaggedComments(file: ts.SourceFile): ReadComments {
+  const read: ReadComments = { comments: [], errors: [], warnings: [] }
+  const attached = new Set<number>()
+  const comments = new Map<number, ts.CommentRange>()
+  const jsxTexts: Array<Span> = []
+  const pending: Array<ts.Node> = [file]
+  for (let node = pending.pop(); node !== undefined; node = pending.pop()) {
+    if (node.kind === ts.SyntaxKind.EndOfFileToken) {
+      continue
+    }
+    if (ts.isJsxText(node)) {
+      jsxTexts.push({ start: node.pos, end: node.end })
+      continue
+    }
+    const children = node.getChildren(file)
+    for (const child of children) {
+      if (ts.isJSDoc(child)) {
+        if (!attached.has(child.pos)) {
+          attached.add(child.pos)
+          readComment(child, node, read)
+        }
         continue
       }
-      if (ts.isJsxText(node)) {
-        jsxTexts.push({ start: node.pos, end: node.end })
-        continue
-      }
-      const children = node.getChildren(file)
-      for (const child of children) {
-        if (ts.isJSDoc(child)) {
-          if (!attached.has(child.pos)) {
-            attached.add(child.pos)
-            readComment(child, node, read)
-          }
-          continue
-        }
-        for (const range of [
-          ...(ts.getLeadingCommentRanges(file.text, child.pos) ?? []),
-          ...(ts.getTrailingCommentRanges(file.text, child.end) ?? []),
-        ]) {
-          comments.set(range.pos, range)
-        }
-      }
-      for (let index = children.length - 1; index >= 0; index--) {
-        if (!ts.isJSDoc(children[index])) {
-          pending.push(children[index])
-        }
+      for (const range of [
+        ...(ts.getLeadingCommentRanges(file.text, child.pos) ?? []),
+        ...(ts.getTrailingCommentRanges(file.text, child.end) ?? []),
+      ]) {
+        comments.set(range.pos, range)
       }
     }
-    for (const range of comments.values()) {
-      if (!attached.has(range.pos) && !isInside(jsxTexts, range.pos)) {
-        warnUnreadComment(file, range, read)
+    for (let index = children.length - 1; index >= 0; index--) {
+      if (!ts.isJSDoc(children[index])) {
+        pending.push(children[index])
       }
     }
   }
+  for (const range of comments.values()) {
+    if (!attached.has(range.pos) && !isInside(jsxTexts, range.pos)) {
+      warnUnreadComment(file, range, read)
+    }
+  }
   return read
+}
+
+function typeDeclarationComment({
+  element,
+  tags,
+}: TaggedComment): Array<TaggedComment> {
+  const schemaTags = tags.filter(
+    (tag) => tag.keyword === 'schema' || tag.keyword === 'field',
+  )
+  if (schemaTags.length === 0 || !isTypeDeclarationPart(element)) {
+    return []
+  }
+  return [{ element, tags: schemaTags }]
+}
+
+function isTypeDeclarationPart(element: ts.Node): boolean {
+  let owner = element
+  if (ts.isPropertySignature(element)) {
+    owner = memberToOwner(element)
+  }
+  return isObjectDeclaration(owner) && !ts.isClassDeclaration(owner)
+}
+
+export function isHandlerTag(tag: CommentTag): tag is HandlerTag {
+  return tag.keyword === 'provides' || tag.keyword === 'consumes'
 }
 
 export function tagToText(tag: CommentTag): string {
@@ -120,10 +169,12 @@ export function argumentToOption(argument: string): TagOption | undefined {
   if (separator <= 0) {
     return undefined
   }
-  return {
-    key: argument.slice(0, separator),
-    value: argument.slice(separator + 1),
+  const key = argument.slice(0, separator)
+  const value = argument.slice(separator + 1)
+  if (key === 'description' && quotedValuePattern.test(value)) {
+    return { key, value: value.slice(1, -1) }
   }
+  return { key, value }
 }
 
 function readComment(
@@ -171,7 +222,7 @@ function readComment(
     const [keyword, ...rest] = words
     const known = keywords.find((candidate) => candidate === keyword)
     if (known !== undefined) {
-      tags.push({ keyword: known, arguments: rest, location })
+      tags.push(argumentsToTag(known, rest, location))
     } else if (words.length === 0) {
       read.errors.push({
         message: `"@${tagName}" needs a keyword: use ${keywordList}`,
@@ -189,7 +240,18 @@ function readComment(
   }
   warnSkippedTags(file, comment, fences, examples, read)
   if (tags.length > 0) {
-    read.comments.push({ element, tags })
+    const typedef = comment.tags?.find(
+      (tag) => ts.isJSDocTypedefTag(tag) || ts.isJSDocCallbackTag(tag),
+    )
+    let target = element
+    if (
+      typedef !== undefined &&
+      !tags.some(isHandlerTag) &&
+      !isOwnComment(comment, element)
+    ) {
+      target = typedef
+    }
+    read.comments.push({ element: target, tags })
   }
 }
 
@@ -273,6 +335,36 @@ function startsItsLine(
   return /^\s*(\/\*\*)?\s*\**\s*$/.test(file.text.slice(lineStart, position))
 }
 
+function argumentsToTag(
+  keyword: TagKeyword,
+  tagArguments: Array<string>,
+  location: SourceLocation,
+): CommentTag {
+  const tag: CommentTag = { keyword, arguments: tagArguments, location }
+  if (
+    tagArguments.some(
+      (argument) =>
+        argument.includes('"') && !quotedDescriptionPattern.test(argument),
+    )
+  ) {
+    tag.error = {
+      message: `cannot read "${tagToText(tag)}": remove the quotes, only description="<text>" takes them`,
+      location,
+    }
+  }
+  return tag
+}
+
+function isOwnComment(comment: ts.JSDoc, element: ts.Node): boolean {
+  return (
+    (isObjectDeclaration(element) ||
+      ts.isEnumDeclaration(element) ||
+      ts.isPropertyDeclaration(element) ||
+      ts.isPropertySignature(element)) &&
+    element.getChildren().filter(ts.isJSDoc).at(-1) === comment
+  )
+}
+
 function isFollowedBySpace(tag: ts.JSDocTag): boolean {
   const next = tag.getSourceFile().text.charAt(tag.tagName.end)
   return next === '' || /[\s*]/.test(next)
@@ -296,7 +388,7 @@ function tagToComment(tag: ts.JSDocTag): string {
 
 function textToArguments(text: string): Array<string> {
   const [beforeFence] = text.split('```')
-  return beforeFence.split(/\s+/).filter((word) => word !== '')
+  return beforeFence.replace(/\r\n?/g, '\n').match(argumentPattern) ?? []
 }
 
 function warnUnreadComment(
