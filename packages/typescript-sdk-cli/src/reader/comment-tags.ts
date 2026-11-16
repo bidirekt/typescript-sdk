@@ -388,7 +388,12 @@ function tagToComment(tag: ts.JSDocTag): string {
 
 function textToArguments(text: string): Array<string> {
   const [beforeFence] = text.split('```')
-  return beforeFence.replace(/\r\n?/g, '\n').match(argumentPattern) ?? []
+  return (
+    beforeFence
+      .replace(/\r\n?/g, '\n')
+      .replaceAll('*\\/', '*/')
+      .match(argumentPattern) ?? []
+  )
 }
 
 function warnUnreadComment(
