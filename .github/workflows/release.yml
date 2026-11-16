@@ -1,0 +1,57 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  npm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Check the tag matches both package versions
+        run: |
+          node -e '
+            const read = (dir) => JSON.parse(fs.readFileSync(`packages/${dir}/package.json`, "utf8"));
+            const runtime = read("typescript-sdk");
+            const cli = read("typescript-sdk-cli");
+            const versions = {
+              [runtime.name]: runtime.version,
+              [cli.name]: cli.version,
+              [`${cli.name} -> ${runtime.name}`]: cli.dependencies[runtime.name],
+            };
+            const expected = process.env.GITHUB_REF_NAME.replace(/^v/, "");
+            const mismatches = Object.entries(versions).filter(([, version]) => version !== expected);
+            for (const [what, version] of mismatches) {
+              console.error(`${what} is ${version}, but the tag ${process.env.GITHUB_REF_NAME} needs ${expected}`);
+            }
+            process.exit(mismatches.length > 0 ? 1 : 0);
+          '
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      # Trusted publishing needs npm 11.5.1+, and dist-tags with OIDC need 11.21.0+.
+      - run: npm install --global npm@11.21.2
+      - run: npm ci
+      - run: npm run build
+      - name: Publish to npm
+        run: |
+          flags=(--access public --provenance)
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then
+            flags+=(--tag next)
+          fi
+          npm publish --workspace @bidirekt/typescript-sdk "${flags[@]}"
+          npm publish --workspace @bidirekt/typescript-sdk-cli "${flags[@]}"
+      - name: Create the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          flags=(--repo "$GITHUB_REPOSITORY" --verify-tag --generate-notes)
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then
+            flags+=(--prerelease)
+          fi
+          gh release create "$GITHUB_REF_NAME" "${flags[@]}"
