@@ -19,10 +19,13 @@ cleanup() {
   compose down -v --remove-orphans
 }
 trap 'failed=$?; cleanup' EXIT
+# dash and busybox ash skip the EXIT trap when a signal kills the shell.
+trap 'exit 1' HUP INT TERM
 
 compose up -d --wait
 
-BIDIREKT_API_KEY=$(compose run --rm -T setup)
+# docker compose run reads all of a stdin that is not a terminal, such as a script piped to sh.
+BIDIREKT_API_KEY=$(compose run --rm -T setup </dev/null)
 export BIDIREKT_API_KEY
 
 published=0
@@ -31,8 +34,8 @@ for expected in "$fixtures"/*/expected.yaml; do
   fixture=$(basename "$(dirname "$expected")")
   participant=e2e_$(printf '%s' "$fixture" | tr - _)
 
-  if output=$(compose run --rm -T cli create-participant "$participant" 2>&1) &&
-    output=$(compose run --rm -T cli publish "$fixture/expected.yaml" --participant "$participant" --version 1 2>&1); then
+  if output=$(compose run --rm -T cli create-participant "$participant" 2>&1 </dev/null) &&
+    output=$(compose run --rm -T cli publish "$fixture/expected.yaml" --participant "$participant" --version 1 2>&1 </dev/null); then
     published=$((published + 1))
     echo "ok $fixture"
   else
