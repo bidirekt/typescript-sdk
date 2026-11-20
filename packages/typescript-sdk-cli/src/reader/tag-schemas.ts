@@ -1,5 +1,6 @@
 import ts from 'typescript'
 import type { UnionMember } from '../model/contract.ts'
+import { descriptionToDiagnostic } from '../model/description.ts'
 import { isDiagnostic } from '../model/diagnostic.ts'
 import type { Diagnostic } from '../model/diagnostic.ts'
 import { argumentToOption, isHandlerTag } from './comment-tags.ts'
@@ -315,12 +316,19 @@ export function argumentsToOptions(
         options[key] = value === 'true'
         break
       }
-      case 'name':
-      case 'description': {
+      case 'name': {
         if (value === '') {
           return usage
         }
-        options[key] = value
+        options.name = value
+        break
+      }
+      case 'description': {
+        const invalid = descriptionToDiagnostic(value, tag.location)
+        if (invalid !== undefined) {
+          return invalid
+        }
+        options.description = value
         break
       }
     }

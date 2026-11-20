@@ -1,4 +1,5 @@
 import ts from 'typescript'
+import { descriptionToDiagnostic } from '../model/description.ts'
 import { isDiagnostic } from '../model/diagnostic.ts'
 import type { Diagnostic } from '../model/diagnostic.ts'
 import { nodeToLocation } from './location.ts'
@@ -128,6 +129,19 @@ export function literalOptionToName(
     }
   }
   return literal.text
+}
+
+export function literalOptionToDescription(
+  options: LiteralOptions,
+): string | undefined | Diagnostic {
+  const literal = literalOptionToStringLiteral(options, 'description')
+  if (literal === undefined || isDiagnostic(literal)) {
+    return literal
+  }
+  return (
+    descriptionToDiagnostic(literal.text, nodeToLocation(literal)) ??
+    literal.text
+  )
 }
 
 export function literalOptionToBoolean(

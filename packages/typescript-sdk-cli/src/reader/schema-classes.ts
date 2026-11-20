@@ -11,8 +11,8 @@ import { expressionToUnionMembers } from './expression-to-schema-node.ts'
 import {
   expressionToLiteralOptions,
   literalOptionToBoolean,
+  literalOptionToDescription,
   literalOptionToName,
-  literalOptionToString,
   literalOptionToStringLiteral,
   propertyNameToText,
 } from './literal-options.ts'
@@ -659,7 +659,7 @@ function literalOptionsToFieldOptions(
   if (isDiagnostic(name)) {
     return name
   }
-  const description = literalOptionToString(options, 'description')
+  const description = literalOptionToDescription(options)
   if (isDiagnostic(description)) {
     return description
   }

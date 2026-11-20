@@ -17,120 +17,93 @@ export class Pet {
   @BidirektField({ description: 'null' })
   looksLikeNull: string
 
-  @BidirektField({ description: '~' })
+  @BidirektField({ name: '~' })
   looksLikeTildeNull: string
-
-  @BidirektField({ description: '' })
-  empty: string
 
   @BidirektField({ description: '123' })
   looksLikeInteger: string
 
-  @BidirektField({ description: '1.5' })
-  looksLikeFloat: string
-
   @BidirektField({ description: '0x1F' })
   looksLikeHexadecimal: string
 
-  @BidirektField({ description: '.inf' })
-  looksLikeInfinity: string
-
-  @BidirektField({ description: '2001-12-14' })
+  @BidirektField({ name: '2001-12-14' })
   looksLikeDate: string
 
-  @BidirektField({ description: 'a: b' })
+  @BidirektField({ name: 'a: b' })
   colonAndSpace: string
 
-  @BidirektField({ description: 'a:b' })
+  @BidirektField({ name: 'a:b' })
   colonWithoutSpace: string
 
-  @BidirektField({ description: 'a #b' })
+  @BidirektField({ name: 'a #b' })
   spaceAndHash: string
 
-  @BidirektField({ description: 'a#b' })
+  @BidirektField({ name: 'a#b' })
   hashWithoutSpace: string
 
-  @BidirektField({ description: '#x' })
+  @BidirektField({ name: '#x' })
   startsWithHash: string
 
-  @BidirektField({ description: '*x' })
+  @BidirektField({ name: '*x' })
   startsWithAsterisk: string
 
-  @BidirektField({ description: '&x' })
+  @BidirektField({ name: '&x' })
   startsWithAmpersand: string
 
-  @BidirektField({ description: '!x' })
+  @BidirektField({ name: '!x' })
   startsWithExclamationMark: string
 
-  @BidirektField({ description: '|x' })
+  @BidirektField({ name: '|x' })
   startsWithPipe: string
 
-  @BidirektField({ description: '>x' })
+  @BidirektField({ name: '>x' })
   startsWithGreaterThan: string
 
-  @BidirektField({ description: "'x" })
+  @BidirektField({ name: "'x" })
   startsWithSingleQuote: string
 
-  @BidirektField({ description: '"x' })
+  @BidirektField({ name: '"x' })
   startsWithDoubleQuote: string
 
-  @BidirektField({ description: '%x' })
+  @BidirektField({ name: '%x' })
   startsWithPercent: string
 
-  @BidirektField({ description: '@x' })
+  @BidirektField({ name: '@x' })
   startsWithAt: string
 
-  @BidirektField({ description: '`x' })
+  @BidirektField({ name: '`x' })
   startsWithBacktick: string
 
-  @BidirektField({ description: '- x' })
+  @BidirektField({ name: '- x' })
   startsWithDashAndSpace: string
 
-  @BidirektField({ description: '? x' })
+  @BidirektField({ name: '? x' })
   startsWithQuestionMarkAndSpace: string
 
-  @BidirektField({ description: '[x' })
-  startsWithOpeningBracket: string
-
-  @BidirektField({ description: ']x' })
-  startsWithClosingBracket: string
-
-  @BidirektField({ description: '{x' })
-  startsWithOpeningBrace: string
-
-  @BidirektField({ description: '}x' })
-  startsWithClosingBrace: string
-
-  @BidirektField({ description: ',x' })
+  @BidirektField({ name: ',x' })
   startsWithComma: string
 
-  @BidirektField({ description: '-x' })
+  @BidirektField({ name: '-x' })
   startsWithDash: string
 
-  @BidirektField({ description: '?x' })
+  @BidirektField({ name: '?x' })
   startsWithQuestionMark: string
 
-  @BidirektField({ description: ':x' })
+  @BidirektField({ name: ':x' })
   startsWithColon: string
 
-  @BidirektField({ description: ' x' })
+  @BidirektField({ name: ' x' })
   leadingSpace: string
 
-  @BidirektField({ description: 'x ' })
+  @BidirektField({ name: 'x ' })
   trailingSpace: string
 
-  @BidirektField({ description: "it's" })
+  @BidirektField({ name: "it's" })
   apostrophe: string
 
-  @BidirektField({ description: 'say "hi"' })
+  @BidirektField({ name: 'say "hi"' })
   doubleQuotesInside: string
 
-  @BidirektField({ description: 'a\nb' })
-  lineBreak: string
-
-  @BidirektField({ description: 'a\\b' })
+  @BidirektField({ name: 'a\\b' })
   backslash: string
-
-  @BidirektField({ description: 'a\tb' })
-  tab: string
 }

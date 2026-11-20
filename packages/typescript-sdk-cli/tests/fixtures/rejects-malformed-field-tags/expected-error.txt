@@ -6,7 +6,7 @@ pets.js:15 cannot read "type=map<integer" in "@bidirekt field": write "type=" fo
 pets.js:18 cannot read "optional=yes" in "@bidirekt field": write "optional=true" or "optional=false"
 pets.js:21 cannot read "nullable=1" in "@bidirekt field": write "nullable=true" or "nullable=false"
 pets.js:24 cannot read "name=" in "@bidirekt field": write "name=<name>"
-pets.js:27 cannot read "description=""" in "@bidirekt field": write description="<text>"
+pets.js:27 "description" is empty: write a description or leave "description" out
 pets.js:30 cannot read "union=card" in "@bidirekt field": write "union={<key>: <schema>, ...}"
 pets.js:33 cannot read "union={card: CardPayment, card: PixPayment}" in "@bidirekt field": write "union={<key>: <schema>, ...}"
 pets.js:36 "name=" is declared more than once in "@bidirekt field": keep one
