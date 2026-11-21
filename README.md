@@ -517,6 +517,7 @@ Each error is printed as `file:line message`; on an error nothing is written and
 
 ```sh
 npx @bidirekt/typescript-sdk-cli generate
+bidirekt validate contracts/generated.yaml
 bidirekt validate contracts/generated.yaml --participant petstore_ts --environment production
 bidirekt publish contracts/generated.yaml --participant petstore_ts --version 1.4.0
 bidirekt can-i-deploy petstore_ts --version 1.4.0 --environment production
@@ -524,7 +525,7 @@ bidirekt can-i-deploy petstore_ts --version 1.4.0 --environment production
 bidirekt record-deployment petstore_ts --version 1.4.0 --environment production
 ```
 
-When `can-i-deploy` reports a break, fix the annotation or the type in the code and generate again.
+`validate` without `--participant` and `--environment` checks only the file; with them, it also compares the file with what is deployed in that environment. When `can-i-deploy` reports a break, fix the annotation or the type in the code and generate again.
 
 A package of your workspace, which npm links into `node_modules`, is read as your code when its `types` or `exports` point at its source. A class, interface or type reached through its built `.d.ts` stops `generate`.
 
