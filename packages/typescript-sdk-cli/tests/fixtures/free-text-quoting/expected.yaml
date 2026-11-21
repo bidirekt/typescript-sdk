@@ -18,122 +18,65 @@ schemas:
       looksLikeNull:
         type: string
         description: "null"
-      looksLikeTildeNull:
+      "~":
         type: string
-        description: "~"
-      empty:
-        type: string
-        description: ""
       looksLikeInteger:
         type: string
         description: "123"
-      looksLikeFloat:
-        type: string
-        description: "1.5"
       looksLikeHexadecimal:
         type: string
         description: "0x1F"
-      looksLikeInfinity:
+      2001-12-14:
         type: string
-        description: ".inf"
-      looksLikeDate:
+      "a: b":
         type: string
-        description: 2001-12-14
-      colonAndSpace:
+      a:b:
         type: string
-        description: "a: b"
-      colonWithoutSpace:
+      "a #b":
         type: string
-        description: a:b
-      spaceAndHash:
+      a#b:
         type: string
-        description: "a #b"
-      hashWithoutSpace:
+      "#x":
         type: string
-        description: a#b
-      startsWithHash:
+      "*x":
         type: string
-        description: "#x"
-      startsWithAsterisk:
+      "&x":
         type: string
-        description: "*x"
-      startsWithAmpersand:
+      "!x":
         type: string
-        description: "&x"
-      startsWithExclamationMark:
+      "|x":
         type: string
-        description: "!x"
-      startsWithPipe:
+      ">x":
         type: string
-        description: "|x"
-      startsWithGreaterThan:
+      "'x":
         type: string
-        description: ">x"
-      startsWithSingleQuote:
+      '"x':
         type: string
-        description: "'x"
-      startsWithDoubleQuote:
+      "%x":
         type: string
-        description: '"x'
-      startsWithPercent:
+      "@x":
         type: string
-        description: "%x"
-      startsWithAt:
+      "`x":
         type: string
-        description: "@x"
-      startsWithBacktick:
+      "- x":
         type: string
-        description: "`x"
-      startsWithDashAndSpace:
+      "? x":
         type: string
-        description: "- x"
-      startsWithQuestionMarkAndSpace:
+      ",x":
         type: string
-        description: "? x"
-      startsWithOpeningBracket:
+      -x:
         type: string
-        description: "[x"
-      startsWithClosingBracket:
+      ?x:
         type: string
-        description: "]x"
-      startsWithOpeningBrace:
+      :x:
         type: string
-        description: "{x"
-      startsWithClosingBrace:
+      " x":
         type: string
-        description: "}x"
-      startsWithComma:
+      "x ":
         type: string
-        description: ",x"
-      startsWithDash:
+      it's:
         type: string
-        description: -x
-      startsWithQuestionMark:
+      say "hi":
         type: string
-        description: ?x
-      startsWithColon:
+      a\b:
         type: string
-        description: :x
-      leadingSpace:
-        type: string
-        description: " x"
-      trailingSpace:
-        type: string
-        description: "x "
-      apostrophe:
-        type: string
-        description: it's
-      doubleQuotesInside:
-        type: string
-        description: say "hi"
-      lineBreak:
-        type: string
-        description: |-
-          a
-          b
-      backslash:
-        type: string
-        description: a\b
-      tab:
-        type: string
-        description: a	b

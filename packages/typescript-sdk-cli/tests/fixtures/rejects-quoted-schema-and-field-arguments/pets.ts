@@ -15,7 +15,7 @@ export class Pet {
   /** @bidirekt field description=the"tag */
   tag!: string
 
-  /** @bidirekt field description="the pet's age" */
+  /** @bidirekt field description="the age of the pet" */
   age!: number
 }
 

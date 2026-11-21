@@ -202,7 +202,7 @@ describe('runCommand', () => {
     assert.deepEqual(result, { exitCode: 0, stderr: '' })
   })
 
-  it('writes the same contract from tags written with CRLF line endings', () => {
+  it('reports a two-line tag description the same with CRLF line endings', () => {
     const taggedPet = [
       '/** @bidirekt schema */',
       'export class Pet {',
@@ -222,12 +222,15 @@ describe('runCommand', () => {
     const lfResult = runCommand(['generate'], lf)
     const crlfResult = runCommand(['generate'], crlf)
 
-    assert.deepEqual(lfResult, { exitCode: 0, stderr: '' })
-    assert.deepEqual(crlfResult, { exitCode: 0, stderr: '' })
-    assert.equal(
-      readFileSync(join(crlf, 'contracts', 'generated.yaml'), 'utf8'),
-      readFileSync(join(lf, 'contracts', 'generated.yaml'), 'utf8'),
-    )
+    const rejected = {
+      exitCode: 1,
+      stderr:
+        'pet.js:4 description "The name\\nthe owner calls the pet" must be ASCII letters and digits, with single spaces between words: remove or replace the other characters\n',
+    }
+    assert.deepEqual(lfResult, rejected)
+    assert.deepEqual(crlfResult, rejected)
+    assert.equal(existsSync(join(lf, 'contracts')), false)
+    assert.equal(existsSync(join(crlf, 'contracts')), false)
   })
 
   it('fails without a stack trace when --out is a directory', () => {

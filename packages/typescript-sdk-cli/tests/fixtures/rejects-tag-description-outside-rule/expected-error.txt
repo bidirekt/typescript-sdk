@@ -1,0 +1,2 @@
+pets.ts:3 description "The pet's age, in years." must be ASCII letters and digits, with single spaces between words: remove or replace the other characters
+pets.ts:11 description "Shown on the status page." must be ASCII letters and digits, with single spaces between words: remove or replace the other characters

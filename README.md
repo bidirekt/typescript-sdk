@@ -555,7 +555,7 @@ With `emitDecoratorMetadata` on (NestJS, TypeORM), TypeScript keeps the imports 
 | `@bidirekt response <status> [body]`            | follows `provides` or `consumes`, once per status                              |
 
 - A handler's comment can also declare schemas, see [Schemas in a handler's comment](#schemas-in-a-handlers-comment).
-- A tag starts a line of a `/** */` comment, and its arguments are separated by spaces. Only a `description` value is quoted (`description="Shown on the card"`), and only a `union=` value is grouped in `{...}`, with optional spaces inside; quotes or braces anywhere else stop `generate`.
+- A tag starts a line of a `/** */` comment, and its arguments are separated by spaces. Only a `description` value is quoted (`description="Shown on the card"`), and inside the quotes it holds only ASCII letters and digits, with single spaces between words. Only a `union=` value is grouped in `{...}`, with optional spaces inside; quotes or braces anywhere else stop `generate`.
 - A comment goes above the statement or declaration it annotates, and above its decorators. It declares at most one handler; tags of one element written in two comments, or `@bidirekt schema` on two blocks of one interface, stop `generate`.
 - A tag names a schema by its name in the contract, which is not always its name in the code. In any tag, `type=` also takes a schema name, alone, in a list or in a map (`HealthCheck`, `HealthCheck[]`, `map<HealthCheck>`).
 - In a path, write a `*` before another segment as `*\/` (`/pets/*\/photos`): a bare `*/` would end the comment. `generate` reads `*\/` as `*/`.
@@ -576,14 +576,14 @@ Without a request (no `request` option, no `@bidirekt request` tag), the resourc
 
 ### Fields
 
-| Decorator                                       | Tag                                          | What it declares                                                                 |
-| ----------------------------------------------- | -------------------------------------------- | -------------------------------------------------------------------------------- |
-| `type: 'integer'`                               | `type=integer`                               | the whole type of the field, see [Types](#types)                                 |
-| `name: 'birth_date'`                            | `name=birth_date`                            | the field's name in the contract; without it, the property's name                |
-| `optional: true`                                | `optional=true`                              | whether the field can be absent; without it, from `?` or `undefined` in the type |
-| `nullable: true`                                | `nullable=true`                              | whether the field can be `null`; without it, from `null` in the type             |
-| `description: 'Shown on the card'`              | `description="Shown on the card"`            | the field's description; only a declared one, a plain comment is not             |
-| `union: { card: CardPayment, pix: PixPayment }` | `union={card: CardPayment, pix: PixPayment}` | the key of each member of a union of schemas                                     |
+| Decorator                                       | Tag                                          | What it declares                                                                                                                |
+| ----------------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `type: 'integer'`                               | `type=integer`                               | the whole type of the field, see [Types](#types)                                                                                |
+| `name: 'birth_date'`                            | `name=birth_date`                            | the field's name in the contract; without it, the property's name                                                               |
+| `optional: true`                                | `optional=true`                              | whether the field can be absent; without it, from `?` or `undefined` in the type                                                |
+| `nullable: true`                                | `nullable=true`                              | whether the field can be `null`; without it, from `null` in the type                                                            |
+| `description: 'Shown on the card'`              | `description="Shown on the card"`            | the field's description, ASCII letters and digits with single spaces between words; only a declared one, a plain comment is not |
+| `union: { card: CardPayment, pix: PixPayment }` | `union={card: CardPayment, pix: PixPayment}` | the key of each member of a union of schemas                                                                                    |
 
 A `union` names each schema of the field's union once, by one key, and nothing else; a tag names each member by its name in the contract, never a list or a map. It applies to the union of the field, of its items or of its values (`Array<Card | Pix>`), and `null` and `undefined` in the type still make them `nullable` or `optional`.
 
