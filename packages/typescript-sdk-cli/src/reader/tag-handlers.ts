@@ -12,7 +12,11 @@ import type { CommentTag, TaggedComment } from './comment-tags.ts'
 import { namesToChoice } from './literal-options.ts'
 import { fieldOptionsToNode } from './schema-classes.ts'
 import type { SdkDecorator } from './sdk-references.ts'
-import { argumentsToOptions, blockFieldKeys } from './tag-schemas.ts'
+import {
+  argumentsToOptions,
+  blockFieldKeys,
+  tagToVocabulary,
+} from './tag-schemas.ts'
 
 export type HandlerComments = {
   comments: Map<string, Array<TaggedComment>>
@@ -85,7 +89,7 @@ export function taggedCommentsToHandlerComments(
       continue
     }
     tagsToProtocolComments(element, [handler, ...protocolTags], read)
-    read.schemas.push(...tagsToBlockSchemas(tags, read.errors))
+    read.schemas.push(...tagsToBlockSchemas(tags, read.errors, protocols))
   }
   return read
 }
@@ -108,6 +112,7 @@ function tagsToProtocolComments(
 function tagsToBlockSchemas(
   tags: Array<CommentTag>,
   errors: Array<Diagnostic>,
+  protocols: ReadonlyArray<ProtocolModule>,
 ): Array<NamedSchema> {
   const blocks: Array<BlockSchema> = []
   let fields: BlockFields | undefined
@@ -133,7 +138,7 @@ function tagsToBlockSchemas(
       })
       continue
     }
-    const property = tagToBlockProperty(tag)
+    const property = tagToBlockProperty(tag, protocols)
     if (isDiagnostic(property)) {
       errors.push(property)
       fields.hasUnreadField = true
@@ -170,7 +175,10 @@ function tagToBlockSchemaName(tag: CommentTag): string | Diagnostic {
   return name
 }
 
-function tagToBlockProperty(tag: CommentTag): Property | Diagnostic {
+function tagToBlockProperty(
+  tag: CommentTag,
+  protocols: ReadonlyArray<ProtocolModule>,
+): Property | Diagnostic {
   const [name, ...remaining] = tag.arguments
   if (tag.error !== undefined) {
     return tag.error
@@ -181,7 +189,12 @@ function tagToBlockProperty(tag: CommentTag): Property | Diagnostic {
       location: tag.location,
     }
   }
-  const options = argumentsToOptions(remaining, tag, blockFieldKeys)
+  const options = argumentsToOptions(
+    remaining,
+    tag,
+    blockFieldKeys,
+    tagToVocabulary(tag, protocols),
+  )
   if (isDiagnostic(options)) {
     return options
   }

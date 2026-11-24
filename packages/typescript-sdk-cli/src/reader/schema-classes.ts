@@ -7,7 +7,15 @@ import type {
 } from '../model/contract.ts'
 import { isDiagnostic } from '../model/diagnostic.ts'
 import type { Diagnostic } from '../model/diagnostic.ts'
-import { expressionToUnionMembers } from './expression-to-schema-node.ts'
+import type {
+  OptionValue,
+  ProtocolModule,
+  SchemaVocabulary,
+} from '../protocols.ts'
+import {
+  expressionToSchemaRef,
+  expressionToUnionMembers,
+} from './expression-to-schema-node.ts'
 import {
   expressionToLiteralOptions,
   literalOptionToBoolean,
@@ -67,6 +75,12 @@ export type FieldOptions = {
   optional?: boolean
   nullable?: boolean
   declared?: SchemaNode
+  extension?: VocabularyExtension
+}
+
+export type VocabularyExtension = {
+  vocabulary: SchemaVocabulary
+  options: Record<string, OptionValue>
 }
 
 export type TagAnnotations = {
@@ -76,43 +90,70 @@ export type TagAnnotations = {
 }
 
 export type TagField = {
+  label: string
   options: FieldOptions
   location: SourceLocation
 }
 
 type FieldAnnotation =
-  { from: 'decorator'; call: ts.CallExpression } | ({ from: 'tag' } & TagField)
+  | {
+      from: 'decorator'
+      name: string
+      call: ts.CallExpression
+      vocabulary?: SchemaVocabulary
+    }
+  | ({ from: 'tag' } & TagField)
 
 type FieldAnnotations = Map<SchemaMember, FieldAnnotation>
+
+const fieldOptionKeys = [
+  'name',
+  'description',
+  'optional',
+  'nullable',
+  'type',
+  'union',
+]
 
 export function sdkReferencesToSchemas(
   references: Array<SdkReference>,
   tags: TagAnnotations,
   context: SchemaContext,
+  protocols: ReadonlyArray<ProtocolModule>,
 ): ReadSchemas {
   const errors = new Set<Diagnostic>()
   const fieldAnnotations: FieldAnnotations = new Map()
   for (const [field, tagField] of tags.fields) {
     fieldAnnotations.set(field, { from: 'tag', ...tagField })
   }
+  const fieldDecorators = protocolsToFieldDecorators(protocols)
   const schemaDecorators: Array<[ts.ClassDeclaration, ts.CallExpression]> = []
   for (const reference of references) {
     if (reference.use !== 'decorator') {
+      continue
+    }
+    const vocabulary = fieldDecorators.get(reference.name)
+    if (reference.protocol !== undefined && vocabulary === undefined) {
       continue
     }
     const element = reference.decorator.parent
     if (ts.isClassDeclaration(element)) {
       schemaDecorators.push([element, reference.call])
     } else if (ts.isPropertyDeclaration(element)) {
-      if (fieldAnnotations.get(element)?.from === 'tag') {
+      const tagged = tags.fields.get(element)
+      if (tagged !== undefined) {
         errors.add({
-          message:
-            '@BidirektField and "@bidirekt field" are both on this property: keep one',
+          message: `@${reference.name} and "${tagged.label}" are both on this property: keep one`,
           location: reference.location,
         })
         continue
       }
-      fieldAnnotations.set(element, { from: 'decorator', call: reference.call })
+      fieldAnnotations.set(element, {
+        from: 'decorator',
+        name: reference.name,
+        call: reference.call,
+        vocabulary,
+      })
     }
   }
   const unreadOptions = new Set<SchemaDeclaration>()
@@ -188,6 +229,19 @@ export function sdkReferencesToSchemas(
   }
 }
 
+function protocolsToFieldDecorators(
+  protocols: ReadonlyArray<ProtocolModule>,
+): Map<string, SchemaVocabulary> {
+  return new Map(
+    protocols.flatMap(({ vocabulary }): Array<[string, SchemaVocabulary]> => {
+      if (vocabulary === undefined) {
+        return []
+      }
+      return [[vocabulary.fieldDecorator, vocabulary]]
+    }),
+  )
+}
+
 function schemaToHints(
   declaration: SchemaDeclaration,
   tags: TagAnnotations,
@@ -226,7 +280,7 @@ function fieldsOutsideSchemas(
     }
     return [
       {
-        message: `@BidirektField is in ${declarationToDescription(field.parent)}, which is neither a schema nor the parent of one, so it is not read: add @BidirektSchema to the class`,
+        message: `@${annotation.name} is in ${declarationToDescription(field.parent)}, which is neither a schema nor the parent of one, so it is not read: add @BidirektSchema to the class`,
         location: nodeToLocation(annotation.call),
       },
     ]
@@ -525,7 +579,10 @@ export function fieldOptionsToNode(
   if (options.description !== undefined) {
     node.description = options.description
   }
-  return node
+  if (options.extension === undefined) {
+    return node
+  }
+  return options.extension.vocabulary.toNode(options.extension.options, node)
 }
 
 function annotationToContext(
@@ -640,19 +697,73 @@ function annotationToFieldOptions(
   if (annotation.from === 'tag') {
     return annotation.options
   }
+  const { name, call, vocabulary } = annotation
   const options = expressionToLiteralOptions(
-    annotation.call.arguments[0],
-    '@BidirektField options',
-    ['name', 'description', 'optional', 'nullable', 'type', 'union'],
+    call.arguments[0],
+    `@${name} options`,
+    [...fieldOptionKeys, ...(vocabulary?.fieldOptions ?? [])],
   )
   if (isDiagnostic(options)) {
     return options
   }
-  return literalOptionsToFieldOptions(options, context)
+  const fieldOptions = literalOptionsToFieldOptions(options, name, context)
+  if (vocabulary === undefined || isDiagnostic(fieldOptions)) {
+    return fieldOptions
+  }
+  const extension = literalOptionsToExtension(options, vocabulary, context)
+  if (isDiagnostic(extension)) {
+    return extension
+  }
+  return { ...fieldOptions, extension }
+}
+
+function literalOptionsToExtension(
+  options: LiteralOptions,
+  vocabulary: SchemaVocabulary,
+  context: SchemaContext,
+): VocabularyExtension | Diagnostic {
+  const values: Record<string, OptionValue> = {}
+  for (const key of vocabulary.fieldOptions) {
+    const expression = options.get(key)
+    if (expression === undefined) {
+      continue
+    }
+    const value = expressionToOptionValue(key, expression, context)
+    if (isDiagnostic(value)) {
+      return value
+    }
+    values[key] = value
+  }
+  return { vocabulary, options: values }
+}
+
+function expressionToOptionValue(
+  key: string,
+  expression: ts.Expression,
+  context: SchemaContext,
+): OptionValue | Diagnostic {
+  if (ts.isStringLiteralLike(expression)) {
+    return expression.text
+  }
+  if (
+    ts.isIdentifier(expression) ||
+    ts.isPropertyAccessExpression(expression)
+  ) {
+    const ref = expressionToSchemaRef(expression, context)
+    if (isDiagnostic(ref)) {
+      return ref
+    }
+    return ref.schema
+  }
+  return {
+    message: `"${key}" must be a string literal or a @BidirektSchema class written in place`,
+    location: nodeToLocation(expression),
+  }
 }
 
 function literalOptionsToFieldOptions(
   options: LiteralOptions,
+  decorator: string,
   context: SchemaContext,
 ): FieldOptions | Diagnostic {
   const name = literalOptionToName(options, 'name')
@@ -678,7 +789,7 @@ function literalOptionsToFieldOptions(
   const union = options.get('union')
   if (type !== undefined && union !== undefined) {
     return {
-      message: 'declare either "type" or "union" in @BidirektField, not both',
+      message: `declare either "type" or "union" in @${decorator}, not both`,
     }
   }
   const fieldOptions: FieldOptions = { name, description, optional, nullable }

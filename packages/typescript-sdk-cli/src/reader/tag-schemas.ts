@@ -3,7 +3,12 @@ import type { UnionMember } from '../model/contract.ts'
 import { descriptionToDiagnostic } from '../model/description.ts'
 import { isDiagnostic } from '../model/diagnostic.ts'
 import type { Diagnostic } from '../model/diagnostic.ts'
-import { argumentToOption, isHandlerTag } from './comment-tags.ts'
+import type {
+  OptionValue,
+  ProtocolModule,
+  SchemaVocabulary,
+} from '../protocols.ts'
+import { argumentToOption, isHandlerTag, tagToLabel } from './comment-tags.ts'
 import { namesToChoice } from './literal-options.ts'
 import type { CommentTag, TaggedComment } from './comment-tags.ts'
 import { declarationToDescription } from './schema-classes.ts'
@@ -55,6 +60,7 @@ const unionMemberPattern = /^([^\s:,]+)\s*:\s*([^\s:,]+)$/
 export function taggedCommentsToSchemaTags(
   comments: Array<TaggedComment>,
   context: SchemaContext,
+  protocols: ReadonlyArray<ProtocolModule>,
 ): ReadTagSchemas {
   const read: ReadTagSchemas = {
     schemas: new Set(),
@@ -74,7 +80,7 @@ export function taggedCommentsToSchemaTags(
     }
     const fieldTag = tagsToSingle(tags, 'field', read)
     if (fieldTag !== undefined) {
-      fieldTagToOptions(fieldTag, element, read, tagged.fields)
+      fieldTagToOptions(fieldTag, element, read, tagged.fields, protocols)
     }
   }
   return read
@@ -228,6 +234,7 @@ function fieldTagToOptions(
   element: ts.Node,
   read: ReadTagSchemas,
   taggedFields: Set<ts.Node>,
+  protocols: ReadonlyArray<ProtocolModule>,
 ): void {
   if (!ts.isPropertyDeclaration(element) && !ts.isPropertySignature(element)) {
     read.warnings.push({
@@ -253,44 +260,70 @@ function fieldTagToOptions(
     return
   }
   taggedFields.add(element)
-  const options = argumentsToOptions(tag.arguments, tag, fieldKeys)
+  const options = argumentsToOptions(
+    tag.arguments,
+    tag,
+    fieldKeys,
+    tagToVocabulary(tag, protocols),
+  )
   if (isDiagnostic(options)) {
     read.errors.push(options)
     read.malformedFields.add(element)
     return
   }
-  read.fields.set(element, { options, location: tag.location })
+  read.fields.set(element, {
+    label: tagToLabel(tag),
+    options,
+    location: tag.location,
+  })
+}
+
+export function tagToVocabulary(
+  tag: CommentTag,
+  protocols: ReadonlyArray<ProtocolModule>,
+): SchemaVocabulary | undefined {
+  return protocols.find(({ name }) => name === tag.vocabulary)?.vocabulary
 }
 
 export function argumentsToOptions(
   tagArguments: Array<string>,
   tag: CommentTag,
   keys: Array<string>,
+  vocabulary?: SchemaVocabulary,
 ): FieldOptions | Diagnostic {
   if (tag.error !== undefined) {
     return tag.error
   }
   const options: FieldOptions = {}
   const seen = new Set<string>()
+  const known = [...keys, ...(vocabulary?.fieldOptions ?? [])]
+  const vocabularyOptions: Record<string, OptionValue> = {}
   for (const argument of tagArguments) {
     const option = argumentToOption(argument)
     const key = option?.key ?? ''
     const fail = (usage: string): Diagnostic => ({
-      message: `cannot read "${argument}" in "@bidirekt ${tag.keyword}": write ${usage}`,
+      message: `cannot read "${argument}" in "${tagToLabel(tag)}": write ${usage}`,
       location: tag.location,
     })
-    if (option === undefined || !keys.includes(key)) {
-      return fail(keysToUsage(keys))
+    if (option === undefined || !known.includes(key)) {
+      return fail(keysToUsage(known))
     }
     if (seen.has(key)) {
       return {
-        message: `"${key}=" is declared more than once in "@bidirekt ${tag.keyword}": keep one`,
+        message: `"${key}=" is declared more than once in "${tagToLabel(tag)}": keep one`,
         location: tag.location,
       }
     }
     seen.add(key)
     const value = option.value
-    const usage = fail(optionUsages[key])
+    const usage = fail(keyToUsage(key))
+    if (!keys.includes(key)) {
+      if (value === '') {
+        return usage
+      }
+      vocabularyOptions[key] = value
+      continue
+    }
     switch (key) {
       case 'type': {
         const declared = tagTypeTextToSchemaNode(value)
@@ -335,19 +368,28 @@ export function argumentsToOptions(
   }
   if (seen.has('type') && seen.has('union')) {
     return {
-      message:
-        'declare either "type=" or "union=" in "@bidirekt field", not both',
+      message: `declare either "type=" or "union=" in "${tagToLabel(tag)}", not both`,
       location: tag.location,
     }
+  }
+  if (vocabulary !== undefined) {
+    options.extension = { vocabulary, options: vocabularyOptions }
   }
   return options
 }
 
 function keysToUsage(keys: Array<string>): string {
   if (keys.length === 1) {
-    return optionUsages[keys[0]]
+    return keyToUsage(keys[0])
   }
   return `"<key>=<value>" with key ${namesToChoice(keys)}`
+}
+
+function keyToUsage(key: string): string {
+  if (Object.hasOwn(optionUsages, key)) {
+    return optionUsages[key]
+  }
+  return `"${key}=<value>"`
 }
 
 function valueToUnionMembers(value: string): Array<UnionMember> | undefined {

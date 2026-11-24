@@ -12,6 +12,7 @@ import { protocolsToDecoratorTargets } from './sdk-references.ts'
 export type CommentTag = {
   keyword: string
   protocol?: string
+  vocabulary?: string
   arguments: Array<string>
   location: SourceLocation
   error?: Diagnostic
@@ -49,10 +50,13 @@ const quotedDescriptionPattern = /^description="[^"]*"$/
 
 const coreKeywords = ['schema', 'field']
 
+const vocabularyKeyword = 'field'
+
 type TagWords = {
   keywords: ReadonlyArray<string>
   keywordChoice: string
   owners: ReadonlyMap<string, string>
+  vocabularies: ReadonlySet<string>
   decorators: ReadonlySet<string>
 }
 
@@ -101,6 +105,11 @@ function protocolsToTagWords(
     keywords,
     keywordChoice: namesToChoice(keywords),
     owners: new Map(owned),
+    vocabularies: new Set(
+      protocols
+        .filter(({ vocabulary }) => vocabulary !== undefined)
+        .map(({ name }) => name),
+    ),
     decorators: new Set(protocolsToDecoratorTargets(protocols).keys()),
   }
 }
@@ -178,7 +187,14 @@ export function isHandlerTag(tag: CommentTag): tag is HandlerTag {
 }
 
 export function tagToText(tag: CommentTag): string {
-  return [`@${tagName}`, tag.keyword, ...tag.arguments].join(' ')
+  return [tagToLabel(tag), ...tag.arguments].join(' ')
+}
+
+export function tagToLabel(tag: CommentTag): string {
+  if (tag.vocabulary === undefined) {
+    return `@${tagName} ${tag.keyword}`
+  }
+  return `@${tagName} ${tag.vocabulary} ${tag.keyword}`
 }
 
 export function argumentToOption(argument: string): TagOption | undefined {
@@ -238,9 +254,27 @@ function readComment(
     const location = nodeToLocation(tag)
     const tagArguments = textToArguments(tagToComment(tag))
     const [keyword, ...remaining] = tagArguments
-    if (words.keywords.includes(keyword)) {
+    const [vocabularyField, ...fieldArguments] = remaining
+    if (
+      words.vocabularies.has(keyword) &&
+      vocabularyField === vocabularyKeyword
+    ) {
       tags.push(
-        argumentsToTag(keyword, words.owners.get(keyword), remaining, location),
+        argumentsToTag(
+          vocabularyKeyword,
+          { vocabulary: keyword },
+          fieldArguments,
+          location,
+        ),
+      )
+    } else if (words.keywords.includes(keyword)) {
+      tags.push(
+        argumentsToTag(
+          keyword,
+          keywordToOwner(keyword, words),
+          remaining,
+          location,
+        ),
       )
     } else if (tagArguments.length === 0) {
       read.errors.push({
@@ -355,15 +389,28 @@ function startsItsLine(
   return /^\s*(\/\*\*)?\s*\**\s*$/.test(file.text.slice(lineStart, position))
 }
 
+function keywordToOwner(
+  keyword: string,
+  words: TagWords,
+): Pick<CommentTag, 'protocol'> {
+  const protocol = words.owners.get(keyword)
+  if (protocol === undefined) {
+    return {}
+  }
+  return { protocol }
+}
+
 function argumentsToTag(
   keyword: string,
-  protocol: string | undefined,
+  owner: Pick<CommentTag, 'protocol' | 'vocabulary'>,
   tagArguments: Array<string>,
   location: SourceLocation,
 ): CommentTag {
-  const tag: CommentTag = { keyword, arguments: tagArguments, location }
-  if (protocol !== undefined) {
-    tag.protocol = protocol
+  const tag: CommentTag = {
+    keyword,
+    ...owner,
+    arguments: tagArguments,
+    location,
   }
   if (
     tagArguments.some(

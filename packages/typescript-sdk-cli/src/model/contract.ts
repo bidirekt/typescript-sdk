@@ -23,8 +23,9 @@ export type UnionMember = {
   node: SchemaNode
 }
 
-export type SchemaNode = NodeFlags &
-  (
+export type SchemaNode = NodeFlags & {
+  extra?: Record<string, unknown>
+} & (
     | { type: PrimitiveType }
     | { type: 'object'; properties: Array<Property> }
     | { type: 'array'; items: SchemaNode }

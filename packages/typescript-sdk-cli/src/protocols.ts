@@ -1,5 +1,9 @@
 import type { YAMLMap } from 'yaml'
-import type { NamedSchema, SourceLocation } from './model/contract.ts'
+import type {
+  NamedSchema,
+  SchemaNode,
+  SourceLocation,
+} from './model/contract.ts'
 import type { Diagnostic } from './model/diagnostic.ts'
 import type { Resource } from './model/protocols/rest/contract.ts'
 import { resourcesToReferences } from './model/protocols/rest/resources-to-references.ts'
@@ -44,6 +48,16 @@ export type MergedBlock<TBlock> = {
   errors: Array<Diagnostic>
 }
 
+export type OptionValue = string
+
+export interface SchemaVocabulary {
+  fieldDecorator: string
+  fieldOptions: ReadonlyArray<string>
+  toNode: (options: Record<string, OptionValue>, node: SchemaNode) => SchemaNode
+  toYaml: (node: SchemaNode, map: YAMLMap) => void
+  references: (node: SchemaNode) => Array<string>
+}
+
 export interface ProtocolModule<TBlock = any> {
   name: string
   exports: Record<string, DecoratorTarget>
@@ -53,6 +67,7 @@ export interface ProtocolModule<TBlock = any> {
   references: (block: TBlock) => Array<Reference>
   isEmpty: (block: TBlock) => boolean
   toYaml: (block: TBlock) => YAMLMap
+  vocabulary?: SchemaVocabulary
 }
 
 const restProtocol: ProtocolModule<Array<Resource>> = {

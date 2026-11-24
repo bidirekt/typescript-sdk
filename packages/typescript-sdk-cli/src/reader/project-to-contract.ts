@@ -44,8 +44,17 @@ export function projectToContract(
   const references = programToSdkReferences(projectProgram, protocols)
   const tagged = programToTaggedComments(projectProgram, protocols)
   const context = programToSchemaContext(projectProgram.program, cwd)
-  const schemaTags = taggedCommentsToSchemaTags(tagged.comments, context)
-  const schemas = sdkReferencesToSchemas(references, schemaTags, context)
+  const schemaTags = taggedCommentsToSchemaTags(
+    tagged.comments,
+    context,
+    protocols,
+  )
+  const schemas = sdkReferencesToSchemas(
+    references,
+    schemaTags,
+    context,
+    protocols,
+  )
   const decorators = references.filter(isProtocolDecorator)
   const handlers = taggedCommentsToHandlerComments(
     tagged.comments,

@@ -59,6 +59,19 @@ const calls: ProtocolModule<Array<Reference>> = {
   references: (block) => block,
   isEmpty: (block) => block.length === 0,
   toYaml: () => new YAMLMap(),
+  vocabulary: {
+    fieldDecorator: 'CallsField',
+    fieldOptions: ['arguments'],
+    toNode: (options, node) => ({ ...node, extra: options }),
+    toYaml: () => undefined,
+    references: (node) => {
+      const fieldArguments = node.extra?.arguments
+      if (typeof fieldArguments !== 'string') {
+        return []
+      }
+      return [fieldArguments]
+    },
+  },
 }
 
 function call(schema: string, line: number): Reference {
@@ -272,6 +285,31 @@ describe('declarationsToContract', () => {
         message:
           'schema "PetResponse" is not declared: reference a schema by its name in the contract',
         location: { file: 'src/calls.ts', line: 3 },
+      },
+    ])
+  })
+
+  it('rejects a name the vocabulary of a node references and no schema has, at its line', () => {
+    const ticket: NamedSchema = {
+      name: 'Ticket',
+      location: { file: 'src/ticket.ts', line: 1 },
+      node: {
+        type: 'object',
+        properties: [
+          {
+            name: 'replies',
+            location: { file: 'src/ticket.ts', line: 2 },
+            node: { type: 'string', extra: { arguments: 'ReplyArgs' } },
+          },
+        ],
+      },
+    }
+    const { errors } = declarationsToContract(declarations([ticket]), [calls])
+    assert.deepEqual(errors, [
+      {
+        message:
+          'schema "ReplyArgs" is not declared: reference a schema by its name in the contract',
+        location: { file: 'src/ticket.ts', line: 2 },
       },
     ])
   })

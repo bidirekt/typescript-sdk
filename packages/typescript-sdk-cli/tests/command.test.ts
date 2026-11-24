@@ -11,7 +11,11 @@ import {
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { after, describe, it } from 'node:test'
+import ts from 'typescript'
+import { Pair, YAMLMap } from 'yaml'
 import { runCommand } from '../src/command.ts'
+import { defaultProtocols } from '../src/protocols.ts'
+import type { ProtocolModule } from '../src/protocols.ts'
 
 const root = mkdtempSync(join(tmpdir(), 'command-'))
 
@@ -32,6 +36,46 @@ const annotatedPet = [
   '}',
   '',
 ].join('\n')
+
+const sdkExportBorrowedAsFieldDecorator = 'BidirektRestConsumer'
+
+const tickets: ProtocolModule<number> = {
+  name: 'tickets',
+  exports: {
+    [sdkExportBorrowedAsFieldDecorator]: {
+      isTarget: ts.isPropertyDeclaration,
+      description: 'a property',
+    },
+  },
+  tagKeywords: [],
+  read: () => ({ blocks: [], derived: [], errors: [] }),
+  merge: (sideBlocks) => ({ block: sideBlocks.length, errors: [] }),
+  references: () => [],
+  isEmpty: (block) => block === 0,
+  toYaml: () => new YAMLMap(),
+  vocabulary: {
+    fieldDecorator: sdkExportBorrowedAsFieldDecorator,
+    fieldOptions: ['scalar', 'arguments'],
+    toNode: (options, node) => ({ ...node, extra: options }),
+    toYaml: (node, map) => {
+      const { scalar, arguments: fieldArguments } = node.extra ?? {}
+      if (typeof scalar === 'string') {
+        map.set('type', 'scalar')
+        map.add(new Pair('name', scalar))
+      }
+      if (typeof fieldArguments === 'string') {
+        map.add(new Pair('arguments', fieldArguments))
+      }
+    },
+    references: (node) => {
+      const fieldArguments = node.extra?.arguments
+      if (typeof fieldArguments !== 'string') {
+        return []
+      }
+      return [fieldArguments]
+    },
+  },
+}
 
 function writeProject(name: string, files: Record<string, string>): string {
   const directory = join(root, name)
@@ -484,6 +528,177 @@ describe('runCommand', () => {
     assert.equal(
       readFileSync(join(withoutRest, 'contracts', 'generated.yaml'), 'utf8'),
       schemas,
+    )
+  })
+
+  it('reads the field decorator and the field tag of a registered vocabulary', () => {
+    const directory = writeProject('vocabulary-fields', {
+      'ticket.ts': [
+        'import {',
+        '  BidirektField,',
+        `  ${sdkExportBorrowedAsFieldDecorator} as TicketField,`,
+        '  BidirektSchema,',
+        "} from '@bidirekt/typescript-sdk'",
+        '',
+        '@BidirektSchema()',
+        'export class ReplyArgs {',
+        '  @BidirektField()',
+        '  first!: string',
+        '}',
+        '',
+        '@BidirektSchema()',
+        'export class Ticket {',
+        "  @TicketField({ scalar: 'DateTime', optional: true })",
+        '  openedAt!: string',
+        '',
+        '  @TicketField({ arguments: ReplyArgs })',
+        '  replies!: string',
+        '}',
+        '',
+      ].join('\n'),
+      'note.ts': [
+        '/** @bidirekt schema */',
+        'export interface Note {',
+        '  /** @bidirekt tickets field scalar=DateTime arguments=ReplyArgs */',
+        '  writtenAt: string',
+        '}',
+        '',
+      ].join('\n'),
+    })
+
+    const result = runCommand(['generate'], directory, [tickets])
+
+    assert.deepEqual(result, { exitCode: 0, stderr: '' })
+    assert.equal(
+      readFileSync(join(directory, 'contracts', 'generated.yaml'), 'utf8'),
+      [
+        header.trimEnd(),
+        'schemas:',
+        '  Note:',
+        '    type: object',
+        '    properties:',
+        '      writtenAt:',
+        '        type: scalar',
+        '        name: DateTime',
+        '        arguments: ReplyArgs',
+        '  ReplyArgs:',
+        '    type: object',
+        '    properties:',
+        '      first:',
+        '        type: string',
+        '  Ticket:',
+        '    type: object',
+        '    properties:',
+        '      openedAt:',
+        '        type: scalar',
+        '        name: DateTime',
+        '        optional: true',
+        '      replies:',
+        '        type: string',
+        '        arguments: ReplyArgs',
+        '',
+      ].join('\n'),
+    )
+  })
+
+  it('rejects a schema a vocabulary references when no schema has its name', () => {
+    const directory = writeProject('vocabulary-missing-schema', {
+      'note.ts': [
+        '/** @bidirekt schema */',
+        'export interface Note {',
+        '  /** @bidirekt tickets field arguments=NoteArgs */',
+        '  replies: string',
+        '}',
+        '',
+      ].join('\n'),
+    })
+
+    const result = runCommand(['generate'], directory, [tickets])
+
+    assert.deepEqual(result, {
+      exitCode: 1,
+      stderr:
+        'note.ts:4 schema "NoteArgs" is not declared: reference a schema by its name in the contract\n',
+    })
+  })
+
+  it('accepts on a vocabulary field only the field options and the options of the vocabulary', () => {
+    const directory = writeProject('vocabulary-unknown-options', {
+      'ticket.ts': [
+        'import {',
+        `  ${sdkExportBorrowedAsFieldDecorator} as TicketField,`,
+        '  BidirektSchema,',
+        "} from '@bidirekt/typescript-sdk'",
+        '',
+        '@BidirektSchema()',
+        'export class Ticket {',
+        "  @TicketField({ scalr: 'DateTime' })",
+        '  openedAt!: string',
+        '}',
+        '',
+      ].join('\n'),
+      'note.ts': [
+        '/** @bidirekt schema */',
+        'export interface Note {',
+        '  /** @bidirekt tickets field scalr=DateTime */',
+        '  writtenAt: string',
+        '}',
+        '',
+      ].join('\n'),
+    })
+
+    const result = runCommand(['generate'], directory, [tickets])
+
+    assert.deepEqual(result, {
+      exitCode: 1,
+      stderr: [
+        'note.ts:3 cannot read "scalr=DateTime" in "@bidirekt tickets field": write "<key>=<value>" with key type, name, optional, nullable, description, union, scalar or arguments',
+        `ticket.ts:8 unknown option "scalr" in @${sdkExportBorrowedAsFieldDecorator} options: write name, description, optional, nullable, type, union, scalar or arguments`,
+        '',
+      ].join('\n'),
+    })
+  })
+
+  it('reads the field tag of a vocabulary in a schema of a handler comment', () => {
+    const directory = writeProject('vocabulary-handler-comment', {
+      'health.ts': [
+        '/**',
+        ' * @bidirekt rest provides GET /health',
+        ' * @bidirekt response 200 Health',
+        ' * @bidirekt schema Health',
+        ' * @bidirekt tickets field checkedAt type=string scalar=DateTime',
+        ' */',
+        'export function health() {}',
+        '',
+      ].join('\n'),
+    })
+    const ticketTags: ProtocolModule<number> = { ...tickets, exports: {} }
+
+    const result = runCommand(['generate'], directory, [
+      ...defaultProtocols,
+      ticketTags,
+    ])
+
+    assert.deepEqual(result, { exitCode: 0, stderr: '' })
+    assert.equal(
+      readFileSync(join(directory, 'contracts', 'generated.yaml'), 'utf8'),
+      [
+        header.trimEnd(),
+        'provides:',
+        '  rest:',
+        '    /health:',
+        '      get:',
+        '        responses:',
+        '          200: Health',
+        'schemas:',
+        '  Health:',
+        '    type: object',
+        '    properties:',
+        '      checkedAt:',
+        '        type: scalar',
+        '        name: DateTime',
+        '',
+      ].join('\n'),
     )
   })
 })
