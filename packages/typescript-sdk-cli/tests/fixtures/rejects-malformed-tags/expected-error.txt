@@ -1,14 +1,14 @@
-pets.ts:10 cannot read "@bidirekt provides GET": write "@bidirekt provides <METHOD> <path>"
-pets.ts:16 cannot read "@bidirekt consumes POST /charges": write "@bidirekt consumes <provider> <METHOD> <path>"
+pets.ts:10 cannot read "@bidirekt rest provides GET": write "@bidirekt rest provides <METHOD> <path>"
+pets.ts:16 cannot read "@bidirekt rest consumes POST /charges": write "@bidirekt rest consumes <provider> <METHOD> <path>"
 pets.ts:23 cannot read "@bidirekt response": write "@bidirekt response <status> [schema]"
 pets.ts:24 response status "ok" must be a number
 pets.ts:25 cannot read "Pet as PetCard" as a body: write "<schema>", "<schema>[]" or "<schema>[] as <name>"
 pets.ts:27 response status "404" is declared more than once in this comment: keep one
 pets.ts:34 "@bidirekt request" is declared more than once in this comment: keep one
-pets.ts:41 a comment declares one handler: move "@bidirekt provides GET /pets/sold" to its own comment
+pets.ts:41 a comment declares one handler: move "@bidirekt rest provides GET /pets/sold" to its own comment
 pets.ts:42 cannot read "Pet[] as" as a body: write "<schema>", "<schema>[]" or "<schema>[] as <name>"
-pets.ts:47 "@bidirekt response" needs a "@bidirekt provides" or "@bidirekt consumes" tag in the same comment
-pets.ts:52 "@bidirekt" needs a keyword: use provides, consumes, request, response, schema or field
-pets.ts:53 unknown tag "@bidirekt handles": use provides, consumes, request, response, schema or field
+pets.ts:47 "@bidirekt response" needs a "@bidirekt rest provides" or "@bidirekt rest consumes" tag in the same comment
+pets.ts:52 "@bidirekt" needs a keyword: use rest, request, response, schema or field
+pets.ts:53 unknown tag "@bidirekt handles": use rest, request, response, schema or field
 pets.ts:58 cannot read "Status" in "@bidirekt schema": write "name=<name>"
 pets.ts:66 response status "0200" must be written as 200

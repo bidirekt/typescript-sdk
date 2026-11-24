@@ -7,7 +7,7 @@ export class Pet {
 }
 
 /**
- * @bidirekt provides GET /pets/*
+ * @bidirekt rest provides GET /pets/*
  * @bidirekt response 200 Pet
  */
 /** Finds a pet by its id. */

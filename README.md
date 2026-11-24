@@ -102,7 +102,7 @@ export class Rating {
 }
 ```
 
-`@BidirektProvider` on a method declares a resource it provides (NestJS here). A body is a schema class, or `null` for no body:
+`@BidirektRestProvider` on a method declares a resource it provides (NestJS here). A body is a schema class, or `null` for no body:
 
 ```ts
 // pets.controller.ts
@@ -115,7 +115,7 @@ import {
   Param,
   Post,
 } from '@nestjs/common'
-import { BidirektProvider } from '@bidirekt/typescript-sdk'
+import { BidirektRestProvider } from '@bidirekt/typescript-sdk'
 import { NewPet, Pet } from './pet.js'
 
 @Controller('pets')
@@ -123,7 +123,7 @@ export class PetsController {
   private readonly pets = new Map<number, Pet>()
 
   @Get(':petId')
-  @BidirektProvider({
+  @BidirektRestProvider({
     method: 'GET',
     path: '/pets/*',
     responses: { 200: Pet, 404: null },
@@ -137,7 +137,7 @@ export class PetsController {
   }
 
   @Post()
-  @BidirektProvider({
+  @BidirektRestProvider({
     method: 'POST',
     path: '/pets',
     request: NewPet,
@@ -154,15 +154,15 @@ export class PetsController {
 }
 ```
 
-`@BidirektConsumer` declares a resource it consumes, and names the provider:
+`@BidirektRestConsumer` declares a resource it consumes, and names the provider:
 
 ```ts
 // ratings.client.ts
-import { BidirektConsumer } from '@bidirekt/typescript-sdk'
+import { BidirektRestConsumer } from '@bidirekt/typescript-sdk'
 import { Rating } from './pet.js'
 
 export class RatingsClient {
-  @BidirektConsumer({
+  @BidirektRestConsumer({
     provider: 'petstore_reviews',
     method: 'GET',
     path: '/ratings/*',
@@ -177,7 +177,7 @@ export class RatingsClient {
 
 ### With tags
 
-`@bidirekt schema` above an `interface`, an object `type` or a class marks a schema, and `@bidirekt field` each field; `field` takes the same options as the decorator, as `key=value`. `@bidirekt provides <METHOD> <path>` or `@bidirekt consumes <provider> <METHOD> <path>` above a handler declares its resource, then `@bidirekt request [schema]` and one `@bidirekt response <status> [schema]` per status, where nothing after the status means no body:
+`@bidirekt schema` above an `interface`, an object `type` or a class marks a schema, and `@bidirekt field` each field; `field` takes the same options as the decorator, as `key=value`. `@bidirekt rest provides <METHOD> <path>` or `@bidirekt rest consumes <provider> <METHOD> <path>` above a handler declares its resource, then `@bidirekt request [schema]` and one `@bidirekt response <status> [schema]` per status, where nothing after the status means no body:
 
 ```ts
 // pet.ts
@@ -259,7 +259,7 @@ const pets = new Map<string, Pet>()
 export const router = express.Router()
 
 /**
- * @bidirekt provides GET /pets/*
+ * @bidirekt rest provides GET /pets/*
  * @bidirekt response 200 Pet
  * @bidirekt response 404
  */
@@ -273,7 +273,7 @@ router.get('/pets/:petId', (req, res) => {
 })
 
 /**
- * @bidirekt provides POST /pets
+ * @bidirekt rest provides POST /pets
  * @bidirekt request NewPet
  * @bidirekt response 201 Pet
  * @bidirekt response 400
@@ -293,7 +293,7 @@ router.post('/pets', (req, res) => {
 import type { Rating } from './pet.ts'
 
 /**
- * @bidirekt consumes petstore_reviews GET /ratings/*
+ * @bidirekt rest consumes petstore_reviews GET /ratings/*
  * @bidirekt response 200 Rating
  * @bidirekt response 404
  */
@@ -412,7 +412,7 @@ import express from 'express'
 export const router = express.Router()
 
 /**
- * @bidirekt provides GET /health
+ * @bidirekt rest provides GET /health
  * @bidirekt response 200 Health
  *
  * @bidirekt schema Health
@@ -533,12 +533,12 @@ A package of your workspace, which npm links into `node_modules`, is read as you
 
 ### Decorators
 
-| Decorator                    | Goes on    | Options                                                                    |
-| ---------------------------- | ---------- | -------------------------------------------------------------------------- |
-| `@BidirektSchema(options?)`  | a class    | `name`                                                                     |
-| `@BidirektField(options?)`   | a property | `type`, `name`, `optional`, `nullable`, `description`, `union`, see Fields |
-| `@BidirektProvider(options)` | a method   | `method`, `path`, `request`, `responses`                                   |
-| `@BidirektConsumer(options)` | a method   | `provider`, `method`, `path`, `request`, `responses`                       |
+| Decorator                        | Goes on    | Options                                                                    |
+| -------------------------------- | ---------- | -------------------------------------------------------------------------- |
+| `@BidirektSchema(options?)`      | a class    | `name`                                                                     |
+| `@BidirektField(options?)`       | a property | `type`, `name`, `optional`, `nullable`, `description`, `union`, see Fields |
+| `@BidirektRestProvider(options)` | a method   | `method`, `path`, `request`, `responses`                                   |
+| `@BidirektRestConsumer(options)` | a method   | `provider`, `method`, `path`, `request`, `responses`                       |
 
 `generate` recognizes a decorator by where it is imported from, `@bidirekt/typescript-sdk`, also through an alias, `import * as` or a re-export in your own code, never by its name. Options are written in place, as literals and classes, never through a variable. A decorator built at runtime (returned by a wrapper function, applied in a loop) is not read, and `generate` warns. A decorator on a `static` property is not read either, and `generate` warns.
 
@@ -546,14 +546,14 @@ With `emitDecoratorMetadata` on (NestJS, TypeORM), TypeScript keeps the imports 
 
 ### Tags
 
-| Tag                                             | Goes above                                                                     |
-| ----------------------------------------------- | ------------------------------------------------------------------------------ |
-| `@bidirekt schema [name=<Name>]`                | a class, an `interface`, an object `type` or a string `enum`                   |
-| `@bidirekt field [key=value ...]`               | a property of a schema                                                         |
-| `@bidirekt provides <METHOD> <path>`            | a function, an exported arrow function, a method or a statement (`router.get`) |
-| `@bidirekt consumes <provider> <METHOD> <path>` | the same                                                                       |
-| `@bidirekt request [body]`                      | follows `provides` or `consumes`                                               |
-| `@bidirekt response <status> [body]`            | follows `provides` or `consumes`, once per status                              |
+| Tag                                                  | Goes above                                                                     |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `@bidirekt schema [name=<Name>]`                     | a class, an `interface`, an object `type` or a string `enum`                   |
+| `@bidirekt field [key=value ...]`                    | a property of a schema                                                         |
+| `@bidirekt rest provides <METHOD> <path>`            | a function, an exported arrow function, a method or a statement (`router.get`) |
+| `@bidirekt rest consumes <provider> <METHOD> <path>` | the same                                                                       |
+| `@bidirekt request [body]`                           | follows `rest provides` or `rest consumes`                                     |
+| `@bidirekt response <status> [body]`                 | follows `rest provides` or `rest consumes`, once per status                    |
 
 - A handler's comment can also declare schemas, see [Schemas in a handler's comment](#schemas-in-a-handlers-comment).
 - A tag starts a line of a `/** */` comment, and its arguments are separated by spaces. Only a `description` value is quoted (`description="Shown on the card"`), and inside the quotes it holds only ASCII letters and digits, with single spaces between words. Only a `union=` value is grouped in `{...}`, with optional spaces inside; quotes or braces anywhere else stop `generate`.
@@ -643,7 +643,7 @@ The contract describes what the code does, not the type the code declares. The T
 - `schema name "Pet" is declared more than once: give each schema a distinct name`
 - `method "get" must be uppercase: write "GET"`
 - `response status "0201" must be written as 201`, also for a decorator status written as `'0201'`.
-- `@BidirektProvider and "@bidirekt provides GET /pets/*" are both on this handler: keep one`; a decorator and a tag on the same schema or field stop it too.
+- `@BidirektRestProvider and "@bidirekt rest provides GET /pets/*" are both on this handler: keep one`; a decorator and a tag on the same schema or field stop it too.
 
 ## Docs
 

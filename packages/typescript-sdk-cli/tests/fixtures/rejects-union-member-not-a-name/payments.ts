@@ -17,7 +17,7 @@ export class Order {
 }
 
 /**
- * @bidirekt provides GET /orders/*
+ * @bidirekt rest provides GET /orders/*
  * @bidirekt response 200 Receipt
  *
  * @bidirekt schema Receipt

@@ -7,13 +7,13 @@ export class Pet {
 }
 
 /**
- * @bidirekt provides GET /pets/*
+ * @bidirekt rest provides GET /pets/*
  * @bidirekt response 200 Pet
  */
 export const findPet = (id: string) => ({ id })
 
 /**
- * @bidirekt provides DELETE /pets/*
+ * @bidirekt rest provides DELETE /pets/*
  * @bidirekt response 204
  */
 export default (id: string) => ({ id })

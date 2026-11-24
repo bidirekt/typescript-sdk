@@ -7,19 +7,19 @@ export class Pet {
 }
 
 /**
- * @bidirekt provides GET /pets
+ * @bidirekt rest provides GET /pets
  * @bidirekt response 200 Pet[]
  */
 export function listPets() {}
 
 /**
- * @bidirekt provides GET /pets/featured
+ * @bidirekt rest provides GET /pets/featured
  * @bidirekt response 200 Pet[] as PetCollection
  */
 export function featuredPets() {}
 
 /**
- * @bidirekt provides GET /pets/sold
+ * @bidirekt rest provides GET /pets/sold
  * @bidirekt response 200 Pet[]
  */
 export function soldPets() {}

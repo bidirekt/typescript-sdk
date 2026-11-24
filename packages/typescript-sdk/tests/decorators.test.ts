@@ -26,9 +26,9 @@ const typesRoot = dirname(
 )
 
 const sampleSource = `import {
-  BidirektConsumer,
   BidirektField,
-  BidirektProvider,
+  BidirektRestConsumer,
+  BidirektRestProvider,
   BidirektSchema,
 } from '@bidirekt/typescript-sdk'
 
@@ -65,17 +65,17 @@ class Pet {
 }
 
 class PetsController {
-  @BidirektProvider({ method: 'GET', path: '/pets/*', responses: { 200: Pet, 404: null } })
+  @BidirektRestProvider({ method: 'GET', path: '/pets/*', responses: { 200: Pet, 404: null } })
   find(): string {
     return 'found'
   }
 
-  @BidirektProvider({ method: 'GET', path: '/pets', responses: { 200: [Pet] } })
+  @BidirektRestProvider({ method: 'GET', path: '/pets', responses: { 200: [Pet] } })
   list(): string {
     return 'listed'
   }
 
-  @BidirektProvider({
+  @BidirektRestProvider({
     method: 'GET',
     path: '/pets/featured',
     responses: { 200: { list: Pet, name: 'PetCollection' } },
@@ -84,7 +84,7 @@ class PetsController {
     return 'featured'
   }
 
-  @BidirektConsumer({
+  @BidirektRestConsumer({
     provider: 'payments_api',
     method: 'POST',
     path: '/charges',
@@ -252,14 +252,14 @@ describe('public API', () => {
 
     assert.deepEqual(exported, [
       'BidirektBody',
-      'BidirektConsumer',
-      'BidirektConsumerOptions',
       'BidirektField',
       'BidirektFieldOptions',
       'BidirektFieldType',
-      'BidirektHttpMethod',
-      'BidirektProvider',
-      'BidirektProviderOptions',
+      'BidirektRestConsumer',
+      'BidirektRestConsumerOptions',
+      'BidirektRestHttpMethod',
+      'BidirektRestProvider',
+      'BidirektRestProviderOptions',
       'BidirektSchema',
       'BidirektSchemaOptions',
     ])

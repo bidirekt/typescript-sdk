@@ -1,5 +1,5 @@
 import {
-  BidirektConsumer,
+  BidirektRestConsumer,
   BidirektField,
   BidirektSchema,
 } from '@bidirekt/typescript-sdk'
@@ -11,11 +11,11 @@ export class NewCharge {
 }
 
 export class CheckoutClient {
-  @BidirektConsumer({ provider: 'payments_api', method: 'POST', path: '/charges', request: NewCharge, responses: { 201: null } })
+  @BidirektRestConsumer({ provider: 'payments_api', method: 'POST', path: '/charges', request: NewCharge, responses: { 201: null } })
   charge() {}
 }
 
 export class RetryClient {
-  @BidirektConsumer({ provider: 'payments_api', method: 'POST', path: '/charges', responses: { 201: null } })
+  @BidirektRestConsumer({ provider: 'payments_api', method: 'POST', path: '/charges', responses: { 201: null } })
   retry() {}
 }

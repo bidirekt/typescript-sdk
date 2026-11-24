@@ -97,7 +97,7 @@ export function sdkReferencesToSchemas(
   }
   const schemaDecorators: Array<[ts.ClassDeclaration, ts.CallExpression]> = []
   for (const reference of references) {
-    if (reference.use === 'misplaced') {
+    if (reference.use !== 'decorator') {
       continue
     }
     const element = reference.decorator.parent

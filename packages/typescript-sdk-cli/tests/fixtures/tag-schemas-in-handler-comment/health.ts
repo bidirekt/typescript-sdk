@@ -1,5 +1,5 @@
 /**
- * @bidirekt provides GET /health
+ * @bidirekt rest provides GET /health
  * @bidirekt response 200 Health
  *
  * @bidirekt schema Health
@@ -18,7 +18,7 @@ export function health() {
 }
 
 /**
- * @bidirekt provides GET /health/checks
+ * @bidirekt rest provides GET /health/checks
  * @bidirekt response 200 HealthCheck[]
  */
 export function healthChecks() {

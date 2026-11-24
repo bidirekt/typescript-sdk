@@ -1,5 +1,5 @@
 /**
- * @bidirekt consumes payments_api POST /refunds
+ * @bidirekt rest consumes payments_api POST /refunds
  * @bidirekt request NewRefund
  * @bidirekt response 201 Refund
  *

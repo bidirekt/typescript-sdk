@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import type { SourceLocation } from '../../src/model/contract.ts'
+import type { SourceLocation } from '../../../../src/model/contract.ts'
 import {
   listToNamedSchema,
   schemaToListName,
-} from '../../src/model/schema-names.ts'
+} from '../../../../src/model/protocols/rest/schema-names.ts'
 
 const at: SourceLocation = { file: 'src/pets.ts', line: 7 }
 

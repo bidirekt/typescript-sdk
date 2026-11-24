@@ -393,4 +393,97 @@ describe('runCommand', () => {
       ].join('\n'),
     )
   })
+
+  it('stops on a REST decorator when no protocol is registered', () => {
+    const directory = writeProject('rest-decorator-without-protocols', {
+      'pets.ts': [
+        "import { BidirektRestProvider } from '@bidirekt/typescript-sdk'",
+        '',
+        'export class PetsController {',
+        "  @BidirektRestProvider({ method: 'GET', path: '/pets', responses: { 204: null } })",
+        '  list() {}',
+        '}',
+        '',
+      ].join('\n'),
+    })
+
+    const result = runCommand(['generate'], directory, [])
+
+    assert.deepEqual(result, {
+      exitCode: 1,
+      stderr:
+        'pets.ts:4 BidirektRestProvider: no registered protocol reads it\n',
+    })
+    assert.equal(existsSync(join(directory, 'contracts')), false)
+  })
+
+  it('stops on a REST tag when no protocol is registered', () => {
+    const directory = writeProject('rest-tag-without-protocols', {
+      'pets.ts': [
+        '/**',
+        ' * @bidirekt rest provides GET /pets',
+        ' * @bidirekt response 204',
+        ' */',
+        'export function listPets() {}',
+        '',
+      ].join('\n'),
+    })
+
+    const result = runCommand(['generate'], directory, [])
+
+    assert.deepEqual(result, {
+      exitCode: 1,
+      stderr: [
+        'pets.ts:2 unknown tag "@bidirekt rest": use schema or field',
+        'pets.ts:3 unknown tag "@bidirekt response": use schema or field',
+        '',
+      ].join('\n'),
+    })
+    assert.equal(existsSync(join(directory, 'contracts')), false)
+  })
+
+  it('writes the same schemas with and without the REST protocol', () => {
+    const files = {
+      'pet.ts': annotatedPet,
+      'owner.ts': [
+        '/** @bidirekt schema */',
+        'export interface Owner {',
+        '  /** @bidirekt field type=integer */',
+        '  id: number',
+        '}',
+        '',
+      ].join('\n'),
+    }
+    const withRest = writeProject('schemas-with-rest', files)
+    const withoutRest = writeProject('schemas-without-rest', files)
+
+    const withRestResult = runCommand(['generate'], withRest)
+    const withoutRestResult = runCommand(['generate'], withoutRest, [])
+
+    const schemas = [
+      header.trimEnd(),
+      'schemas:',
+      '  Owner:',
+      '    type: object',
+      '    properties:',
+      '      id:',
+      '        type: integer',
+      '  Pet:',
+      '    type: object',
+      '    properties:',
+      '      name:',
+      '        type: string',
+      '',
+    ].join('\n')
+    assert.deepEqual(withRestResult, { exitCode: 0, stderr: '' })
+    assert.deepEqual(withoutRestResult, { exitCode: 0, stderr: '' })
+    assert.equal(
+      readFileSync(join(withRest, 'contracts', 'generated.yaml'), 'utf8'),
+      schemas,
+    )
+    assert.equal(
+      readFileSync(join(withoutRest, 'contracts', 'generated.yaml'), 'utf8'),
+      schemas,
+    )
+  })
 })

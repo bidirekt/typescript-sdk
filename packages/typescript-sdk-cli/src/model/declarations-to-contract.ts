@@ -1,32 +1,49 @@
 import { isDeepStrictEqual } from 'node:util'
 import type {
-  Body,
   Contract,
-  NamedSchema,
-  SchemaNode,
-  SourceLocation,
-} from './contract.ts'
+  ProtocolModule,
+  Reference,
+  SideBlock,
+} from '../protocols.ts'
+import type { NamedSchema, SchemaNode, SourceLocation } from './contract.ts'
 import type { Diagnostic } from './diagnostic.ts'
-import { consumedToMerged, providedToMerged } from './resources-to-merged.ts'
+
+export type Declarations = {
+  blocks: Map<string, Array<SideBlock<unknown>>>
+  schemas: Array<NamedSchema>
+}
 
 export type ContractResult = {
   contract: Contract
   errors: Array<Diagnostic>
 }
 
-type Reference = {
-  schema: string
-  location: SourceLocation
+export type ProtocolBlock = {
+  protocol: ProtocolModule
+  block: unknown
 }
 
-export function declarationsToContract(declarations: Contract): ContractResult {
+export function declarationsToContract(
+  declarations: Declarations,
+  protocols: ReadonlyArray<ProtocolModule>,
+): ContractResult {
   const { schemas, errors } = declarationsToSchemas(declarations.schemas)
-  const provides = providedToMerged(declarations.provides)
-  const consumes = consumedToMerged(declarations.consumes)
-  const contract = {
-    provides: provides.resources,
-    consumes: consumes.resources,
+  const contract: Contract = {
+    provides: new Map(),
+    consumes: new Map(),
     schemas,
+  }
+  const mergeErrors: Array<Diagnostic> = []
+  for (const protocol of protocols) {
+    const sides = Map.groupBy(
+      declarations.blocks.get(protocol.name) ?? [],
+      ({ provider }) => provider,
+    )
+    for (const [provider, sideBlocks] of sides) {
+      const merged = protocol.merge(sideBlocks)
+      mergeErrors.push(...merged.errors)
+      sideToBlocks(contract, provider).set(protocol.name, merged.block)
+    }
   }
   const declared = new Set(declarations.schemas.map((schema) => schema.name))
   return {
@@ -34,11 +51,33 @@ export function declarationsToContract(declarations: Contract): ContractResult {
     errors: [
       ...errors,
       ...declarations.schemas.flatMap(schemaToDuplicateFields),
-      ...provides.errors,
-      ...consumes.errors,
-      ...contractToMissingReferences(contract, declared),
+      ...mergeErrors,
+      ...contractToMissingReferences(contract, protocols, declared),
     ],
   }
+}
+
+export function contractToProtocolBlocks(
+  contract: Contract,
+  protocols: ReadonlyArray<ProtocolModule>,
+): Array<ProtocolBlock> {
+  return [contract.provides, ...contract.consumes.values()].flatMap((blocks) =>
+    protocols
+      .filter((protocol) => blocks.has(protocol.name))
+      .map((protocol) => ({ protocol, block: blocks.get(protocol.name) })),
+  )
+}
+
+function sideToBlocks(
+  contract: Contract,
+  provider: string | undefined,
+): Map<string, unknown> {
+  if (provider === undefined) {
+    return contract.provides
+  }
+  const blocks = contract.consumes.get(provider) ?? new Map<string, unknown>()
+  contract.consumes.set(provider, blocks)
+  return blocks
 }
 
 function declarationsToSchemas(declarations: Array<NamedSchema>): {
@@ -99,18 +138,13 @@ function collisionToMessage(name: string, group: Array<NamedSchema>): string {
 
 function contractToMissingReferences(
   contract: Contract,
+  protocols: ReadonlyArray<ProtocolModule>,
   declared: ReadonlySet<string>,
 ): Array<Diagnostic> {
-  const bodies: Array<Body> = [...contract.provides, ...contract.consumes]
-    .flatMap((resource) => [resource.request, ...resource.responses])
-    .filter((body) => body !== undefined)
   const references: Array<Reference> = [
-    ...bodies.flatMap(({ schema, location }) => {
-      if (schema === null) {
-        return []
-      }
-      return [{ schema, location }]
-    }),
+    ...contractToProtocolBlocks(contract, protocols).flatMap(
+      ({ protocol, block }) => protocol.references(block),
+    ),
     ...contract.schemas.flatMap((schema) =>
       nodeToReferences(schema.node, schema.location),
     ),

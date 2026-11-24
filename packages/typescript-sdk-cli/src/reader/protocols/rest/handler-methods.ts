@@ -1,35 +1,25 @@
 import ts from 'typescript'
+import type { NamedSchema, SourceLocation } from '../../../model/contract.ts'
+import { isDiagnostic } from '../../../model/diagnostic.ts'
+import type { Diagnostic } from '../../../model/diagnostic.ts'
 import type {
   Body,
-  ConsumedResource,
-  NamedSchema,
-  ProvidedResource,
+  Resource,
   Response,
-  SourceLocation,
-} from '../model/contract.ts'
-import { isDiagnostic } from '../model/diagnostic.ts'
-import type { Diagnostic } from '../model/diagnostic.ts'
-import { listToNamedSchema } from '../model/schema-names.ts'
-import { expressionToSchemaRef } from './expression-to-schema-node.ts'
+} from '../../../model/protocols/rest/contract.ts'
+import { listToNamedSchema } from '../../../model/protocols/rest/schema-names.ts'
+import type { ProtocolRead, SideBlock } from '../../../protocols.ts'
+import { expressionToSchemaRef } from '../../expression-to-schema-node.ts'
 import {
   computedKeyToValue,
   expressionToLiteralOptions,
   literalOptionToName,
   literalOptionToString,
-} from './literal-options.ts'
-import type { LiteralOptions } from './literal-options.ts'
-import { nodeToLocation } from './location.ts'
-import type { SchemaContext } from './schema-context.ts'
-import type { SdkReference } from './sdk-references.ts'
-
-export type ReadResources = {
-  provides: Array<ProvidedResource>
-  consumes: Array<ConsumedResource>
-  schemas: Array<NamedSchema>
-  errors: Array<Diagnostic>
-}
-
-type HandlerAnnotation = 'BidirektProvider' | 'BidirektConsumer'
+} from '../../literal-options.ts'
+import type { LiteralOptions } from '../../literal-options.ts'
+import { nodeToLocation } from '../../location.ts'
+import type { SchemaContext } from '../../schema-context.ts'
+import type { DecoratorTarget, SdkDecorator } from '../../sdk-references.ts'
 
 type HandlerRead = {
   options: LiteralOptions
@@ -40,35 +30,34 @@ type HandlerRead = {
   errors: Array<Diagnostic>
 }
 
+export const restDecoratorTargets: Record<string, DecoratorTarget> = {
+  BidirektRestProvider: {
+    isTarget: ts.isMethodDeclaration,
+    description: 'a method',
+  },
+  BidirektRestConsumer: {
+    isTarget: ts.isMethodDeclaration,
+    description: 'a method',
+  },
+}
+
 const listKeys = ['list', 'name']
 
-const handlerOptions: Record<HandlerAnnotation, Array<string>> = {
-  BidirektProvider: ['method', 'path', 'request', 'responses'],
-  BidirektConsumer: ['provider', 'method', 'path', 'request', 'responses'],
+const handlerOptions: Record<string, Array<string>> = {
+  BidirektRestProvider: ['method', 'path', 'request', 'responses'],
+  BidirektRestConsumer: ['provider', 'method', 'path', 'request', 'responses'],
 }
 
-export function isHandlerDecorator(
-  reference: SdkReference,
-): reference is SdkReference & { use: 'decorator'; name: HandlerAnnotation } {
-  return (
-    reference.use === 'decorator' &&
-    (reference.name === 'BidirektProvider' ||
-      reference.name === 'BidirektConsumer')
-  )
-}
-
-export function sdkReferencesToResources(
-  references: Array<SdkReference>,
+export function sdkDecoratorsToResources(
+  decorators: Array<SdkDecorator>,
   context: SchemaContext,
-): ReadResources {
-  const read: ReadResources = {
-    provides: [],
-    consumes: [],
-    schemas: [],
+): ProtocolRead<Array<Resource>> {
+  const read: ProtocolRead<Array<Resource>> = {
+    blocks: [],
+    derived: [],
     errors: [],
   }
-  for (const reference of references.filter(isHandlerDecorator)) {
-    const { name, call } = reference
+  for (const { name, call } of decorators) {
     const what = `@${name}`
     const options = expressionToLiteralOptions(
       call.arguments[0],
@@ -88,7 +77,7 @@ export function sdkReferencesToResources(
       errors: [],
     }
     let provider: string | undefined
-    if (name === 'BidirektConsumer') {
+    if (name === 'BidirektRestConsumer') {
       provider = withoutDiagnostic(requiredString(handler, 'provider'), handler)
     }
     const declared = handlerToDeclared(handler)
@@ -111,20 +100,20 @@ export type DeclaredResource = {
 }
 
 export function declaredToRead(
-  { provider, request, ...rest }: DeclaredResource,
+  { provider, request, ...declared }: DeclaredResource,
   derived: Array<NamedSchema>,
-  read: ReadResources,
+  read: ProtocolRead<Array<Resource>>,
 ): void {
-  read.schemas.push(...derived)
-  const resource: ProvidedResource = rest
+  read.derived.push(...derived)
+  const resource: Resource = declared
   if (request !== undefined) {
     resource.request = request
   }
-  if (provider === undefined) {
-    read.provides.push(resource)
-    return
+  const sideBlock: SideBlock<Array<Resource>> = { block: [resource] }
+  if (provider !== undefined) {
+    sideBlock.provider = provider
   }
-  read.consumes.push({ ...resource, provider })
+  read.blocks.push(sideBlock)
 }
 
 function handlerToDeclared(handler: HandlerRead): DeclaredResource | undefined {

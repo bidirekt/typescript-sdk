@@ -1,12 +1,21 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
+import { YAMLMap } from 'yaml'
 import type {
-  Contract,
   NamedSchema,
-  ProvidedResource,
   SchemaNode,
+  SourceLocation,
 } from '../../src/model/contract.ts'
-import { declarationsToContract } from '../../src/model/declarations-to-contract.ts'
+import {
+  contractToProtocolBlocks,
+  declarationsToContract,
+} from '../../src/model/declarations-to-contract.ts'
+import type { Declarations } from '../../src/model/declarations-to-contract.ts'
+import type {
+  ProtocolModule,
+  Reference,
+  SideBlock,
+} from '../../src/protocols.ts'
 
 const petList: SchemaNode = {
   type: 'array',
@@ -30,24 +39,38 @@ function pet(line: number): NamedSchema {
   }
 }
 
-function listing(
-  file: string,
-  schema: string | null,
-  path = '/pets',
-): ProvidedResource {
-  return {
-    method: 'GET',
-    path,
-    responses: [{ status: 200, schema, location: { file, line: 3 } }],
-    location: { file, line: 2 },
-  }
+const callsMergeError = {
+  message: 'calls are merged with an error',
+  location: { file: 'src/calls.ts', line: 9 },
+}
+
+const calls: ProtocolModule<Array<Reference>> = {
+  name: 'calls',
+  exports: {},
+  tagKeywords: [],
+  read: () => ({ blocks: [], derived: [], errors: [] }),
+  merge: (sideBlocks) => {
+    const block = sideBlocks.flatMap((sideBlock) => sideBlock.block)
+    if (block.some(({ schema }) => schema === 'Conflict')) {
+      return { block, errors: [callsMergeError] }
+    }
+    return { block, errors: [] }
+  },
+  references: (block) => block,
+  isEmpty: (block) => block.length === 0,
+  toYaml: () => new YAMLMap(),
+}
+
+function call(schema: string, line: number): Reference {
+  const location: SourceLocation = { file: 'src/calls.ts', line }
+  return { schema, location }
 }
 
 function declarations(
   schemas: Array<NamedSchema>,
-  provides: Array<ProvidedResource> = [],
-): Contract {
-  return { provides, consumes: [], schemas }
+  blocks: Array<SideBlock<Array<Reference>>> = [],
+): Declarations {
+  return { blocks: new Map([['calls', blocks]]), schemas }
 }
 
 describe('declarationsToContract', () => {
@@ -59,6 +82,7 @@ describe('declarationsToContract', () => {
     }
     const { contract, errors } = declarationsToContract(
       declarations([pet(1), owner]),
+      [calls],
     )
     assert.deepEqual(errors, [])
     assert.deepEqual(contract.schemas, [pet(1), owner])
@@ -66,25 +90,20 @@ describe('declarationsToContract', () => {
 
   it('writes an identical derived list used in several places once', () => {
     const { contract, errors } = declarationsToContract(
-      declarations(
-        [
-          pet(1),
-          {
-            name: 'PetList',
-            location: { file: 'src/a.ts', line: 3 },
-            node: petList,
-          },
-          {
-            name: 'PetList',
-            location: { file: 'src/b.ts', line: 3 },
-            node: { type: 'array', items: { type: 'ref', schema: 'Pet' } },
-          },
-        ],
-        [
-          listing('src/a.ts', 'PetList'),
-          listing('src/b.ts', 'PetList', '/pets/recent'),
-        ],
-      ),
+      declarations([
+        pet(1),
+        {
+          name: 'PetList',
+          location: { file: 'src/a.ts', line: 3 },
+          node: petList,
+        },
+        {
+          name: 'PetList',
+          location: { file: 'src/b.ts', line: 3 },
+          node: { type: 'array', items: { type: 'ref', schema: 'Pet' } },
+        },
+      ]),
+      [calls],
     )
     assert.deepEqual(errors, [])
     assert.deepEqual(
@@ -94,7 +113,9 @@ describe('declarationsToContract', () => {
   })
 
   it('rejects two schemas with the same name at both places', () => {
-    const { errors } = declarationsToContract(declarations([pet(1), pet(8)]))
+    const { errors } = declarationsToContract(declarations([pet(1), pet(8)]), [
+      calls,
+    ])
     const message =
       'schema name "Pet" is declared more than once: give each schema a distinct name'
     assert.deepEqual(errors, [
@@ -123,7 +144,7 @@ describe('declarationsToContract', () => {
         ],
       },
     }
-    const { errors } = declarationsToContract(declarations([schema]))
+    const { errors } = declarationsToContract(declarations([schema]), [calls])
     const message =
       'field "id" is declared more than once in schema "Pet": give each field a distinct name'
     assert.deepEqual(errors, [
@@ -147,6 +168,7 @@ describe('declarationsToContract', () => {
           node: { ...petList, nullable: true },
         },
       ]),
+      [calls],
     )
     const message =
       'lists named "PetList" differ: give each list a distinct name'
@@ -171,6 +193,7 @@ describe('declarationsToContract', () => {
           node: petList,
         },
       ]),
+      [calls],
     )
     const message =
       'list name "PetList" is also the name of another schema: give the list a distinct name'
@@ -180,24 +203,77 @@ describe('declarationsToContract', () => {
     ])
   })
 
-  it('rejects a body that references a name no schema has, at its line', () => {
+  it('merges the blocks of each side of a protocol into one block', () => {
+    const { contract, errors } = declarationsToContract(
+      declarations(
+        [pet(1)],
+        [
+          { block: [call('Pet', 1)] },
+          { provider: 'payments_api', block: [call('Pet', 2)] },
+          { block: [call('Pet', 3)] },
+          { provider: 'auth_api', block: [call('Pet', 4)] },
+          { provider: 'payments_api', block: [call('Pet', 5)] },
+        ],
+      ),
+      [calls],
+    )
+    assert.deepEqual(errors, [])
+    assert.deepEqual(
+      contract.provides,
+      new Map([['calls', [call('Pet', 1), call('Pet', 3)]]]),
+    )
+    assert.deepEqual(
+      contract.consumes,
+      new Map([
+        [
+          'payments_api',
+          new Map([['calls', [call('Pet', 2), call('Pet', 5)]]]),
+        ],
+        ['auth_api', new Map([['calls', [call('Pet', 4)]]])],
+      ]),
+    )
+  })
+
+  it('leaves the blocks of an unregistered protocol out', () => {
+    const { contract, errors } = declarationsToContract(
+      declarations([pet(1)], [{ block: [call('Missing', 1)] }]),
+      [],
+    )
+    assert.deepEqual(errors, [])
+    assert.deepEqual(contract.provides, new Map())
+    assert.deepEqual(contract.consumes, new Map())
+  })
+
+  it('reports the errors of merging the blocks of a protocol', () => {
     const { errors } = declarationsToContract(
-      declarations([pet(1)], [listing('src/a.ts', 'PetResponse')]),
+      declarations(
+        [pet(1)],
+        [{ block: [call('Pet', 1)] }, { block: [call('Conflict', 2)] }],
+      ),
+      [calls],
+    )
+    assert.deepEqual(errors, [
+      callsMergeError,
+      {
+        message:
+          'schema "Conflict" is not declared: reference a schema by its name in the contract',
+        location: { file: 'src/calls.ts', line: 2 },
+      },
+    ])
+  })
+
+  it('rejects a reference of a protocol block to a name no schema has, at its line', () => {
+    const { errors } = declarationsToContract(
+      declarations([pet(1)], [{ block: [call('PetResponse', 3)] }]),
+      [calls],
     )
     assert.deepEqual(errors, [
       {
         message:
           'schema "PetResponse" is not declared: reference a schema by its name in the contract',
-        location: { file: 'src/a.ts', line: 3 },
+        location: { file: 'src/calls.ts', line: 3 },
       },
     ])
-  })
-
-  it('accepts a body without a schema', () => {
-    const { errors } = declarationsToContract(
-      declarations([], [listing('src/a.ts', null)]),
-    )
-    assert.deepEqual(errors, [])
   })
 
   it('rejects a reference inside a schema to a name no schema has', () => {
@@ -209,6 +285,7 @@ describe('declarationsToContract', () => {
           node: petList,
         },
       ]),
+      [calls],
     )
     assert.deepEqual(errors, [
       {
@@ -216,6 +293,25 @@ describe('declarationsToContract', () => {
           'schema "Pet" is not declared: reference a schema by its name in the contract',
         location: { file: 'src/a.ts', line: 3 },
       },
+    ])
+  })
+})
+
+describe('contractToProtocolBlocks', () => {
+  it('lists the blocks of the provided side, then of each provider', () => {
+    const { contract } = declarationsToContract(
+      declarations(
+        [pet(1)],
+        [
+          { provider: 'payments_api', block: [call('Pet', 1)] },
+          { block: [call('Pet', 2)] },
+        ],
+      ),
+      [calls],
+    )
+    assert.deepEqual(contractToProtocolBlocks(contract, [calls]), [
+      { protocol: calls, block: [call('Pet', 2)] },
+      { protocol: calls, block: [call('Pet', 1)] },
     ])
   })
 })

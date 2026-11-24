@@ -3,27 +3,6 @@ export type SourceLocation = {
   line: number
 }
 
-export type Body = {
-  schema: string | null
-  location: SourceLocation
-}
-
-export type Response = Body & {
-  status: number
-}
-
-export type ProvidedResource = {
-  method: string
-  path: string
-  request?: Body
-  responses: Array<Response>
-  location: SourceLocation
-}
-
-export type ConsumedResource = ProvidedResource & {
-  provider: string
-}
-
 export type PrimitiveType =
   'string' | 'integer' | 'float' | 'number' | 'boolean'
 
@@ -59,10 +38,4 @@ export type NamedSchema = {
   name: string
   node: SchemaNode
   location: SourceLocation
-}
-
-export type Contract = {
-  provides: Array<ProvidedResource>
-  consumes: Array<ConsumedResource>
-  schemas: Array<NamedSchema>
 }

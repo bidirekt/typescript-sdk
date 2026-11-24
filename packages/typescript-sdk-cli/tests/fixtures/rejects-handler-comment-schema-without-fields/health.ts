@@ -1,5 +1,5 @@
 /**
- * @bidirekt provides GET /health
+ * @bidirekt rest provides GET /health
  * @bidirekt response 200 Health
  *
  * @bidirekt schema Health
@@ -7,7 +7,7 @@
 export function health() {}
 
 /**
- * @bidirekt provides GET /ready
+ * @bidirekt rest provides GET /ready
  * @bidirekt response 200 Ready
  *
  * @bidirekt schema Ready
@@ -17,7 +17,7 @@ export function health() {}
 export function ready() {}
 
 /**
- * @bidirekt provides GET /live
+ * @bidirekt rest provides GET /live
  * @bidirekt response 200 Live
  *
  * @bidirekt schema Live

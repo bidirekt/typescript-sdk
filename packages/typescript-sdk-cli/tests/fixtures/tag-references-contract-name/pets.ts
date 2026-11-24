@@ -7,14 +7,14 @@ export class Pet {
 }
 
 /**
- * @bidirekt provides GET /pets/*
+ * @bidirekt rest provides GET /pets/*
  * @bidirekt response 200 PetResponse
  * @bidirekt response 404
  */
 export function findPet() {}
 
 /**
- * @bidirekt provides GET /pets
+ * @bidirekt rest provides GET /pets
  * @bidirekt response 200 PetResponse[]
  */
 export function listPets() {}

@@ -4,8 +4,6 @@ type BidirektDecorator = (
   descriptor?: unknown,
 ) => void
 
-export type BidirektHttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
-
 type BidirektPrimitive = 'string' | 'integer' | 'float' | 'number' | 'boolean'
 
 type BidirektNestedType<T extends string> = T | `${T}[]` | `map<${T}>`
@@ -35,17 +33,6 @@ export interface BidirektFieldOptions {
   union?: Record<string, BidirektSchemaClass>
 }
 
-export interface BidirektProviderOptions {
-  method: BidirektHttpMethod
-  path: string
-  request?: BidirektBody
-  responses: Record<number, BidirektBody>
-}
-
-export interface BidirektConsumerOptions extends BidirektProviderOptions {
-  provider: string
-}
-
 function ignoreDecoratedElement(): undefined {
   return undefined
 }
@@ -62,14 +49,4 @@ export function BidirektField(
   return ignoreDecoratedElement
 }
 
-export function BidirektProvider(
-  _options: BidirektProviderOptions,
-): BidirektDecorator {
-  return ignoreDecoratedElement
-}
-
-export function BidirektConsumer(
-  _options: BidirektConsumerOptions,
-): BidirektDecorator {
-  return ignoreDecoratedElement
-}
+export * from './protocols/rest.ts'

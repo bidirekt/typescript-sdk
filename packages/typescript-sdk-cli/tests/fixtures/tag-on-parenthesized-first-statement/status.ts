@@ -1,5 +1,5 @@
 /**
- * @bidirekt consumes payments_api GET /status
+ * @bidirekt rest consumes payments_api GET /status
  * @bidirekt response 200
  */
 (async () => {

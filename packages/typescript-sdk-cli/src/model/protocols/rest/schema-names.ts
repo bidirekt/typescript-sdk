@@ -1,4 +1,4 @@
-import type { NamedSchema, SourceLocation } from './contract.ts'
+import type { NamedSchema, SourceLocation } from '../../contract.ts'
 
 export function schemaToListName(schema: string): string {
   return `${schema}List`

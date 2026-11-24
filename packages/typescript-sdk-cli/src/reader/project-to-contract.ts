@@ -1,14 +1,14 @@
-import type { Contract } from '../model/contract.ts'
 import { declarationsToContract } from '../model/declarations-to-contract.ts'
 import type { Diagnostic } from '../model/diagnostic.ts'
+import type { Contract, ProtocolModule } from '../protocols.ts'
 import { programToTaggedComments } from './comment-tags.ts'
-import { sdkReferencesToResources } from './handler-methods.ts'
 import { programToSyntaxErrors, projectToProgram } from './program.ts'
 import type { Project } from './program.ts'
 import { sdkReferencesToSchemas } from './schema-classes.ts'
 import { programToSchemaContext } from './schema-context.ts'
 import { programToSdkReferences } from './sdk-references.ts'
-import { taggedCommentsToResources } from './tag-handlers.ts'
+import type { SdkDecorator, SdkReference } from './sdk-references.ts'
+import { taggedCommentsToHandlerComments } from './tag-handlers.ts'
 import { taggedCommentsToSchemaTags } from './tag-schemas.ts'
 
 export type { Project } from './program.ts'
@@ -19,8 +19,16 @@ export type ReadResult = {
   warnings: Array<Diagnostic>
 }
 
-export function projectToContract(project: Project, cwd: string): ReadResult {
-  const contract: Contract = { provides: [], consumes: [], schemas: [] }
+export function projectToContract(
+  project: Project,
+  cwd: string,
+  protocols: ReadonlyArray<ProtocolModule>,
+): ReadResult {
+  const contract: Contract = {
+    provides: new Map(),
+    consumes: new Map(),
+    schemas: [],
+  }
   const projectProgram = projectToProgram(project)
   if ('message' in projectProgram) {
     return {
@@ -33,41 +41,74 @@ export function projectToContract(project: Project, cwd: string): ReadResult {
   if (syntaxErrors.length > 0) {
     return { contract, errors: syntaxErrors, warnings: [] }
   }
-  const references = programToSdkReferences(projectProgram)
-  const tagged = programToTaggedComments(projectProgram)
+  const references = programToSdkReferences(projectProgram, protocols)
+  const tagged = programToTaggedComments(projectProgram, protocols)
   const context = programToSchemaContext(projectProgram.program, cwd)
   const schemaTags = taggedCommentsToSchemaTags(tagged.comments, context)
   const schemas = sdkReferencesToSchemas(references, schemaTags, context)
-  const resources = sdkReferencesToResources(references, context)
-  const tagResources = taggedCommentsToResources(tagged.comments, references)
-  const merged = declarationsToContract({
-    provides: [...resources.provides, ...tagResources.provides],
-    consumes: [...resources.consumes, ...tagResources.consumes],
-    schemas: [
-      ...schemas.schemas,
-      ...resources.schemas,
-      ...tagResources.schemas,
-    ],
-  })
+  const decorators = references.filter(isProtocolDecorator)
+  const handlers = taggedCommentsToHandlerComments(
+    tagged.comments,
+    decorators,
+    protocols,
+  )
+  const reads = protocols.map((protocol) => ({
+    name: protocol.name,
+    read: protocol.read({
+      decorators: decorators.filter(
+        (decorator) => decorator.protocol === protocol.name,
+      ),
+      comments: handlers.comments.get(protocol.name) ?? [],
+      context,
+    }),
+  }))
+  const merged = declarationsToContract(
+    {
+      blocks: new Map(reads.map(({ name, read }) => [name, read.blocks])),
+      schemas: [
+        ...schemas.schemas,
+        ...reads.flatMap(({ read }) => read.derived),
+        ...handlers.schemas,
+      ],
+    },
+    protocols,
+  )
   return {
     contract: merged.contract,
     errors: [
-      ...new Set([...schemas.errors, ...resources.errors]),
+      ...referencesToDiagnostics(references, 'unregistered'),
+      ...new Set([
+        ...schemas.errors,
+        ...reads.flatMap(({ read }) => read.errors),
+      ]),
       ...tagged.errors,
       ...schemaTags.errors,
-      ...tagResources.errors,
+      ...handlers.errors,
       ...merged.errors,
     ],
     warnings: [
-      ...references.flatMap((reference) => {
-        if (reference.use !== 'misplaced') {
-          return []
-        }
-        return [{ message: reference.message, location: reference.location }]
-      }),
+      ...referencesToDiagnostics(references, 'misplaced'),
       ...schemas.warnings,
       ...tagged.warnings,
       ...schemaTags.warnings,
     ],
   }
+}
+
+function isProtocolDecorator(
+  reference: SdkReference,
+): reference is SdkDecorator {
+  return reference.use === 'decorator' && reference.protocol !== undefined
+}
+
+function referencesToDiagnostics(
+  references: Array<SdkReference>,
+  use: 'misplaced' | 'unregistered',
+): Array<Diagnostic> {
+  return references.flatMap((reference) => {
+    if (reference.use === 'decorator' || reference.use !== use) {
+      return []
+    }
+    return [{ message: reference.message, location: reference.location }]
+  })
 }

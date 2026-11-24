@@ -7,19 +7,19 @@ export class Pet {
 }
 
 /**
- * @bidirekt provides GET
+ * @bidirekt rest provides GET
  * @bidirekt response 200 Pet
  */
 export function missingPath() {}
 
 /**
- * @bidirekt consumes POST /charges
+ * @bidirekt rest consumes POST /charges
  * @bidirekt response 201
  */
 export function missingProvider() {}
 
 /**
- * @bidirekt provides GET /pets/*
+ * @bidirekt rest provides GET /pets/*
  * @bidirekt response
  * @bidirekt response ok Pet
  * @bidirekt response 200 Pet as PetCard
@@ -29,7 +29,7 @@ export function missingProvider() {}
 export function badResponses() {}
 
 /**
- * @bidirekt provides PUT /pets/*
+ * @bidirekt rest provides PUT /pets/*
  * @bidirekt request Pet
  * @bidirekt request
  * @bidirekt response 204
@@ -37,8 +37,8 @@ export function badResponses() {}
 export function twoRequests() {}
 
 /**
- * @bidirekt provides GET /pets
- * @bidirekt provides GET /pets/sold
+ * @bidirekt rest provides GET /pets
+ * @bidirekt rest provides GET /pets/sold
  * @bidirekt response 200 Pet[] as
  */
 export function twoHandlers() {}
@@ -62,7 +62,7 @@ export enum Status {
 }
 
 /**
- * @bidirekt provides GET /pets/legacy
+ * @bidirekt rest provides GET /pets/legacy
  * @bidirekt response 0200 Pet
  */
 export function leadingZeroStatus() {}

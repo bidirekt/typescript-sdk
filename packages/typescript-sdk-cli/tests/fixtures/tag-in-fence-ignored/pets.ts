@@ -16,9 +16,9 @@ export class Pet {
 /**
  * Function handlers declare their contract in a comment:
  * ```ts
- * @bidirekt provides GET /health
+ * @bidirekt rest provides GET /health
  * @bidirekt response 200
- * @Bidirekt provides GET /typo
+ * @Bidirekt rest provides GET /typo
  * ```
  */
 export function documented(): void {}

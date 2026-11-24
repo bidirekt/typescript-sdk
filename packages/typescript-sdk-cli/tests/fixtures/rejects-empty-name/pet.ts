@@ -1,6 +1,6 @@
 import {
   BidirektField,
-  BidirektProvider,
+  BidirektRestProvider,
   BidirektSchema,
 } from '@bidirekt/typescript-sdk'
 
@@ -17,7 +17,7 @@ export class Owner {
 }
 
 export class OwnersController {
-  @BidirektProvider({
+  @BidirektRestProvider({
     method: 'GET',
     path: '/owners',
     responses: { 200: { list: Owner, name: '' } },

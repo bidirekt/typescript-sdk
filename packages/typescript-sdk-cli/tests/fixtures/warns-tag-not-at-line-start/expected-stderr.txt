@@ -1,3 +1,3 @@
-pets.ts:13 warning: "@bidirekt provides" is not at the start of a comment line, so it is not read: start the line with it
-pets.ts:17 warning: "@bidirekt provides" is not at the start of a comment line, so it is not read: start the line with it
+pets.ts:13 warning: "@bidirekt rest" is not at the start of a comment line, so it is not read: start the line with it
+pets.ts:17 warning: "@bidirekt rest" is not at the start of a comment line, so it is not read: start the line with it
 pets.ts:18 warning: "@bidirekt response" is not at the start of a comment line, so it is not read: start the line with it

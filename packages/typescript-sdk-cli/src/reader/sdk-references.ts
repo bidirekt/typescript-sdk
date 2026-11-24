@@ -1,40 +1,45 @@
 import ts from 'typescript'
 import type { SourceLocation } from '../model/contract.ts'
+import type { ProtocolModule } from '../protocols.ts'
 import { nodeToLocation } from './location.ts'
 import { programToUserFiles } from './program.ts'
 import type { ProjectProgram } from './program.ts'
 
-export type SdkExportName =
-  'BidirektSchema' | 'BidirektField' | 'BidirektProvider' | 'BidirektConsumer'
+export type DecoratorTarget = {
+  isTarget: (node: ts.Node) => boolean
+  description: string
+}
+
+export type SdkDecorator = {
+  use: 'decorator'
+  name: string
+  protocol?: string
+  call: ts.CallExpression
+  decorator: ts.Decorator
+  location: SourceLocation
+}
 
 export type SdkReference =
+  | SdkDecorator
   | {
-      use: 'decorator'
-      name: SdkExportName
-      call: ts.CallExpression
-      decorator: ts.Decorator
-      location: SourceLocation
-    }
-  | {
-      use: 'misplaced'
-      name: SdkExportName
+      use: 'misplaced' | 'unregistered'
+      name: string
       message: string
       location: SourceLocation
     }
 
+type RegisteredTarget = DecoratorTarget & {
+  protocol?: string
+}
+
 type FoundReference = {
-  name: SdkExportName
+  name: string
   expression: ts.Identifier | ts.PropertyAccessExpression
   call: ts.CallExpression | undefined
   location: SourceLocation
 }
 
-type DecoratorTarget = {
-  isTarget: (node: ts.Node) => boolean
-  description: string
-}
-
-const decoratorTargets: Record<SdkExportName, DecoratorTarget> = {
+const coreTargets: Record<string, DecoratorTarget> = {
   BidirektSchema: {
     isTarget: ts.isClassDeclaration,
     description: 'a class declaration',
@@ -43,23 +48,29 @@ const decoratorTargets: Record<SdkExportName, DecoratorTarget> = {
     isTarget: (node) => ts.isPropertyDeclaration(node) && !isStatic(node),
     description: 'a property',
   },
-  BidirektProvider: {
-    isTarget: ts.isMethodDeclaration,
-    description: 'a method',
-  },
-  BidirektConsumer: {
-    isTarget: ts.isMethodDeclaration,
-    description: 'a method',
-  },
 }
 
-export function isSdkExportName(name: string): name is SdkExportName {
-  return Object.hasOwn(decoratorTargets, name)
+export function protocolsToDecoratorTargets(
+  protocols: ReadonlyArray<ProtocolModule>,
+): Map<string, RegisteredTarget> {
+  return new Map<string, RegisteredTarget>([
+    ...Object.entries(coreTargets),
+    ...protocols.flatMap(({ name, exports }) =>
+      Object.entries(exports).map(
+        ([exported, target]): [string, RegisteredTarget] => [
+          exported,
+          { ...target, protocol: name },
+        ],
+      ),
+    ),
+  ])
 }
 
 export function programToSdkReferences(
   projectProgram: ProjectProgram,
+  protocols: ReadonlyArray<ProtocolModule>,
 ): Array<SdkReference> {
+  const targets = protocolsToDecoratorTargets(protocols)
   const checker = projectProgram.program.getTypeChecker()
   const sdkExports = programToSdkExports(projectProgram, checker)
   const found: Array<FoundReference> = []
@@ -97,7 +108,7 @@ export function programToSdkReferences(
       pending.push(children[index])
     }
   }
-  return foundToSdkReferences(found)
+  return foundToSdkReferences(found, targets)
 }
 
 function nodeToChildren(node: ts.Node): Array<ts.Node> {
@@ -122,32 +133,53 @@ export function isStatic(property: ts.Declaration): boolean {
 
 function foundToSdkReferences(
   found: Array<FoundReference>,
+  targets: ReadonlyMap<string, RegisteredTarget>,
 ): Array<SdkReference> {
-  return found.map(({ name, expression, call, location }) => {
+  return found.map(({ name, expression, call, location }): SdkReference => {
+    const target = targets.get(name)
+    if (target === undefined) {
+      return {
+        use: 'unregistered',
+        name,
+        message: `${name}: no registered protocol reads it`,
+        location,
+      }
+    }
     if (
       call !== undefined &&
       ts.isDecorator(call.parent) &&
-      decoratorTargets[name].isTarget(call.parent.parent)
+      target.isTarget(call.parent.parent)
     ) {
-      return { use: 'decorator', name, call, decorator: call.parent, location }
+      const decorator: SdkDecorator = {
+        use: 'decorator',
+        name,
+        call,
+        decorator: call.parent,
+        location,
+      }
+      if (target.protocol !== undefined) {
+        decorator.protocol = target.protocol
+      }
+      return decorator
     }
     return {
       use: 'misplaced',
       name,
-      message: misplacedToMessage(name, expression, call),
+      message: misplacedToMessage(name, target, targets, expression, call),
       location,
     }
   })
 }
 
 function misplacedToMessage(
-  name: SdkExportName,
+  name: string,
+  target: DecoratorTarget,
+  targets: ReadonlyMap<string, DecoratorTarget>,
   expression: ts.Expression,
   call: ts.CallExpression | undefined,
 ): string {
-  const target = decoratorTargets[name]
   if (call !== undefined && ts.isDecorator(call.parent)) {
-    return `@${name} is on ${elementToDescription(call.parent.parent)}, so it is not read: put it on ${target.description}`
+    return `@${name} is on ${elementToDescription(call.parent.parent, targets)}, so it is not read: put it on ${target.description}`
   }
   if (ts.isDecorator(expression.parent)) {
     return `@${name} is not called, so it is not read: write @${name}()`
@@ -155,7 +187,10 @@ function misplacedToMessage(
   return `${name} is not written as a decorator, so it is not read: write @${name}() on ${target.description}`
 }
 
-function elementToDescription(element: ts.Node): string {
+function elementToDescription(
+  element: ts.Node,
+  targets: ReadonlyMap<string, DecoratorTarget>,
+): string {
   if (ts.isClassExpression(element)) {
     return 'a class expression'
   }
@@ -168,17 +203,15 @@ function elementToDescription(element: ts.Node): string {
   if (ts.isPropertyDeclaration(element) && isStatic(element)) {
     return 'a static property'
   }
-  const target = Object.values(decoratorTargets).find(({ isTarget }) =>
-    isTarget(element),
-  )
+  const target = [...targets.values()].find(({ isTarget }) => isTarget(element))
   return target?.description ?? 'this element'
 }
 
 function programToSdkExports(
   { program, sdkEntry }: ProjectProgram,
   checker: ts.TypeChecker,
-): Map<ts.Symbol, SdkExportName> {
-  const sdkExports = new Map<ts.Symbol, SdkExportName>()
+): Map<ts.Symbol, string> {
+  const sdkExports = new Map<ts.Symbol, string>()
   const entry = program.getSourceFile(sdkEntry)
   if (entry === undefined) {
     return sdkExports
@@ -190,7 +223,7 @@ function programToSdkExports(
   for (const exported of checker.getExportsOfModule(entryModule)) {
     const target = symbolToTarget(exported, checker)
     if (target.flags & ts.SymbolFlags.Function) {
-      sdkExports.set(target, exported.name as SdkExportName)
+      sdkExports.set(target, exported.name)
     }
   }
   return sdkExports
@@ -209,8 +242,8 @@ export function symbolToTarget(
 function identifierToSdkExportName(
   identifier: ts.Identifier,
   checker: ts.TypeChecker,
-  sdkExports: Map<ts.Symbol, SdkExportName>,
-): SdkExportName | undefined {
+  sdkExports: Map<ts.Symbol, string>,
+): string | undefined {
   const symbol = identifierToSymbol(identifier, checker)
   if (symbol === undefined) {
     return undefined

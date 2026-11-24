@@ -1,6 +1,6 @@
 import {
   BidirektField,
-  BidirektProvider,
+  BidirektRestProvider,
   BidirektSchema,
 } from '@bidirekt/typescript-sdk'
 
@@ -23,27 +23,27 @@ export class PetCard {
 }
 
 export class PetsController {
-  @BidirektProvider({
+  @BidirektRestProvider({
     method: 'GET',
     path: '/pets/*',
     responses: { 200: Pet, 404: null },
   })
   find() {}
 
-  @BidirektProvider({ method: 'GET', path: '/pets', responses: { 200: [Pet] } })
+  @BidirektRestProvider({ method: 'GET', path: '/pets', responses: { 200: [Pet] } })
   list() {}
 
-  @BidirektProvider({
+  @BidirektRestProvider({
     method: 'GET',
     path: '/pets/featured',
     responses: { 200: { list: Pet, name: 'PetCollection' } },
   })
   featured() {}
 
-  @BidirektProvider({ method: 'GET', path: '/pets/*/card', responses: { 200: PetCard } })
+  @BidirektRestProvider({ method: 'GET', path: '/pets/*/card', responses: { 200: PetCard } })
   card() {}
 
-  @BidirektProvider({
+  @BidirektRestProvider({
     method: 'POST',
     path: '/pets',
     request: NewPet,
@@ -51,6 +51,6 @@ export class PetsController {
   })
   create() {}
 
-  @BidirektProvider({ method: 'PUT', path: '/pets/*', request: null, responses: { 204: null } })
+  @BidirektRestProvider({ method: 'PUT', path: '/pets/*', request: null, responses: { 204: null } })
   replace() {}
 }

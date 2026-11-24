@@ -41,7 +41,7 @@ export class Order {
 }
 
 /**
- * @bidirekt provides POST /orders
+ * @bidirekt rest provides POST /orders
  * @bidirekt request NewOrder
  * @bidirekt response 201
  *

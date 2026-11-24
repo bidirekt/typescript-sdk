@@ -1,23 +1,25 @@
-import type {
-  Body,
-  ConsumedResource,
-  ProvidedResource,
-  Response,
-  SourceLocation,
-} from './contract.ts'
-import type { Diagnostic } from './diagnostic.ts'
+import type { SourceLocation } from '../../contract.ts'
+import type { Diagnostic } from '../../diagnostic.ts'
+import type { MergedBlock, SideBlock } from '../../../protocols.ts'
+import type { Body, Resource, Response } from './contract.ts'
 
-export type MergedResources<T> = {
-  resources: Array<T>
-  errors: Array<Diagnostic>
+export function sideBlocksToMerged(
+  sideBlocks: Array<SideBlock<Array<Resource>>>,
+): MergedBlock<Array<Resource>> {
+  const [{ provider }] = sideBlocks
+  const resources = sideBlocks.flatMap(({ block }) => block)
+  if (provider === undefined) {
+    return providedToMerged(resources)
+  }
+  return consumedToMerged(resources, provider)
 }
 
 export function providedToMerged(
-  provides: Array<ProvidedResource>,
-): MergedResources<ProvidedResource> {
-  const resources: Array<ProvidedResource> = []
+  provides: Array<Resource>,
+): MergedBlock<Array<Resource>> {
+  const resources: Array<Resource> = []
   const errors: Array<Diagnostic> = []
-  for (const group of Map.groupBy(provides, providedToKey).values()) {
+  for (const group of Map.groupBy(provides, resourceToKey).values()) {
     const [first] = group
     resources.push(first)
     if (group.length === 1) {
@@ -28,13 +30,14 @@ export function providedToMerged(
       errors.push({ message, location })
     }
   }
-  return { resources, errors }
+  return { block: resources, errors }
 }
 
 export function consumedToMerged(
-  consumes: Array<ConsumedResource>,
-): MergedResources<ConsumedResource> {
-  const resources: Array<ConsumedResource> = []
+  consumes: Array<Resource>,
+  provider: string,
+): MergedBlock<Array<Resource>> {
+  const resources: Array<Resource> = []
   const errors = new Map<string, Diagnostic>()
   const addError = (message: string, location: SourceLocation): void => {
     errors.set(`${location.file}:${location.line} ${message}`, {
@@ -42,9 +45,9 @@ export function consumedToMerged(
       location,
     })
   }
-  for (const group of Map.groupBy(consumes, consumedToKey).values()) {
+  for (const group of Map.groupBy(consumes, resourceToKey).values()) {
     const [first, ...others] = group
-    const resource = `"${first.method} ${first.path}" consumed from "${first.provider}"`
+    const resource = `"${first.method} ${first.path}" consumed from "${provider}"`
     for (const other of others) {
       const conflict = requestsToConflict(first, other, resource)
       if (conflict !== undefined) {
@@ -65,7 +68,7 @@ export function consumedToMerged(
     }
     resources.push({ ...first, responses: [...responses.values()] })
   }
-  return { resources, errors: [...errors.values()] }
+  return { block: resources, errors: [...errors.values()] }
 }
 
 type RequestConflict = {
@@ -75,8 +78,8 @@ type RequestConflict = {
 }
 
 function requestsToConflict(
-  first: ConsumedResource,
-  other: ConsumedResource,
+  first: Resource,
+  other: Resource,
   resource: string,
 ): RequestConflict | undefined {
   if (first.request === undefined && other.request === undefined) {
@@ -99,7 +102,7 @@ function requestsToConflict(
   }
 }
 
-function requestToLocation(resource: ProvidedResource): SourceLocation {
+function requestToLocation(resource: Resource): SourceLocation {
   return resource.request?.location ?? resource.location
 }
 
@@ -110,10 +113,6 @@ function schemaToText(schema: Body['schema']): string {
   return `"${schema}"`
 }
 
-function providedToKey(resource: ProvidedResource): string {
+function resourceToKey(resource: Resource): string {
   return JSON.stringify([resource.method, resource.path])
-}
-
-function consumedToKey(resource: ConsumedResource): string {
-  return JSON.stringify([resource.provider, resource.method, resource.path])
 }

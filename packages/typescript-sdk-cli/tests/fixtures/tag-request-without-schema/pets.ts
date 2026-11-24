@@ -7,7 +7,7 @@ export class Pet {
 }
 
 /**
- * @bidirekt provides PUT /pets/*
+ * @bidirekt rest provides PUT /pets/*
  * @bidirekt request
  * @bidirekt response 200 Pet
  * @bidirekt response 404

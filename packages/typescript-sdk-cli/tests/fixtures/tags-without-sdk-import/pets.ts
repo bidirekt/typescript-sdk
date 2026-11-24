@@ -1,5 +1,5 @@
 /**
- * @bidirekt provides DELETE /pets/*
+ * @bidirekt rest provides DELETE /pets/*
  * @bidirekt response 204
  * @bidirekt response 404
  */

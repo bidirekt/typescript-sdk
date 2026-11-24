@@ -1,7 +1,7 @@
 import {
-  BidirektConsumer,
+  BidirektRestConsumer,
   BidirektField,
-  BidirektProvider,
+  BidirektRestProvider,
   BidirektSchema,
 } from '@bidirekt/typescript-sdk'
 
@@ -13,12 +13,12 @@ export class Pet {
 
 export class PetsController {
   // @ts-expect-error the method is written in lowercase on purpose
-  @BidirektProvider({ method: 'get', path: '/pets/*', responses: { 200: Pet } })
+  @BidirektRestProvider({ method: 'get', path: '/pets/*', responses: { 200: Pet } })
   find() {}
 }
 
 export class ShelterClient {
-  @BidirektConsumer({
+  @BidirektRestConsumer({
     provider: 'shelter_api',
     // @ts-expect-error the method is written in mixed case on purpose
     method: 'Post',

@@ -10,11 +10,11 @@ export class Pet {
   name!: string
 }
 
-/** Lists the pets. @bidirekt provides GET /pets */
+/** Lists the pets. @bidirekt rest provides GET /pets */
 export function listPets() {}
 
 /**
- * Finds a pet. @bidirekt provides GET /pets/*
+ * Finds a pet. @bidirekt rest provides GET /pets/*
  * It answers 200. @bidirekt response 200
  */
 export function findPet() {}

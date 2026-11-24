@@ -1,12 +1,12 @@
 declare const app: { get(path: string): typeof app }
 
 export const pets = app
-  /** @Bidirekt provides GET /pets */
+  /** @Bidirekt rest provides GET /pets */
   .get('/pets')
 
 export const toys = app
   /**
-   * @bidirektprovides GET /toys
+   * @bidirektrest provides GET /toys
    */
   .get('/toys')
 
@@ -15,11 +15,11 @@ export const owners = app
   .get('/owners')
 
 export const people = app
-  /** @BidirektProvider is a decorator. */
+  /** @BidirektRestProvider is a decorator. */
   .get('/people')
 
 /**
- * @bidirekt provides GET /owners
+ * @bidirekt rest provides GET /owners
  * @bidirekt response 200
  */
 export function listOwners() {}

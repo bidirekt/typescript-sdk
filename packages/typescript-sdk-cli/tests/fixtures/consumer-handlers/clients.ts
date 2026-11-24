@@ -1,5 +1,5 @@
 import {
-  BidirektConsumer,
+  BidirektRestConsumer,
   BidirektField,
   BidirektSchema,
 } from '@bidirekt/typescript-sdk'
@@ -29,7 +29,7 @@ export class AuditEntry {
 }
 
 export class PaymentsClient {
-  @BidirektConsumer({
+  @BidirektRestConsumer({
     provider: 'payments_api',
     method: 'POST',
     path: '/charges',
@@ -38,10 +38,10 @@ export class PaymentsClient {
   })
   charge() {}
 
-  @BidirektConsumer({ provider: 'payments_api', method: 'GET', path: '/charges', responses: { 200: [Charge] } })
+  @BidirektRestConsumer({ provider: 'payments_api', method: 'GET', path: '/charges', responses: { 200: [Charge] } })
   list() {}
 
-  @BidirektConsumer({
+  @BidirektRestConsumer({
     provider: 'payments_api',
     method: 'GET',
     path: '/charges/recent',
@@ -49,10 +49,10 @@ export class PaymentsClient {
   })
   recent() {}
 
-  @BidirektConsumer({ provider: 'payments_api', method: 'GET', path: '/charges/*/receipt', responses: { 200: Receipt } })
+  @BidirektRestConsumer({ provider: 'payments_api', method: 'GET', path: '/charges/*/receipt', responses: { 200: Receipt } })
   receipt() {}
 
-  @BidirektConsumer({
+  @BidirektRestConsumer({
     provider: 'payments_api',
     method: 'PATCH',
     path: '/charges/*',
@@ -63,7 +63,7 @@ export class PaymentsClient {
 }
 
 export class AuditClient {
-  @BidirektConsumer({
+  @BidirektRestConsumer({
     provider: 'audit_api',
     method: 'PUT',
     path: '/entries/*',

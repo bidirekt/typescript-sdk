@@ -1,7 +1,7 @@
 import {
-  BidirektConsumer,
+  BidirektRestConsumer,
   BidirektField,
-  BidirektProvider,
+  BidirektRestProvider,
   BidirektSchema,
 } from '@bidirekt/typescript-sdk'
 
@@ -12,12 +12,12 @@ export class Pet {
 }
 
 export class PetsController {
-  @BidirektProvider({ method: 'GET', path: '/pets', responses: { 200: [Pet] } })
+  @BidirektRestProvider({ method: 'GET', path: '/pets', responses: { 200: [Pet] } })
   list() {}
 }
 
 export class ShelterClient {
-  @BidirektConsumer({
+  @BidirektRestConsumer({
     provider: 'shelter_api',
     method: 'GET',
     path: '/residents',

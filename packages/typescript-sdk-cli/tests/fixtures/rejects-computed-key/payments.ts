@@ -1,6 +1,6 @@
 import {
   BidirektField,
-  BidirektProvider,
+  BidirektRestProvider,
   BidirektSchema,
 } from '@bidirekt/typescript-sdk'
 
@@ -33,14 +33,14 @@ export class Order {
 }
 
 export class PaymentsController {
-  @BidirektProvider({
+  @BidirektRestProvider({
     method: 'GET',
     path: '/payments/*',
     responses: { [HttpStatus.Ok]: Card },
   })
   find(): void {}
 
-  @BidirektProvider({
+  @BidirektRestProvider({
     method: 'GET',
     path: '/orders/*',
     responses: { [statusOf('ok')]: Order },

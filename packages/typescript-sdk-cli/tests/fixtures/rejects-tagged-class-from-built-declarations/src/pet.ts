@@ -7,7 +7,7 @@ export class Pet {
 }
 
 /**
- * @bidirekt provides GET /owners/*
+ * @bidirekt rest provides GET /owners/*
  * @bidirekt response 200 Owner
  */
 export function findOwner() {}

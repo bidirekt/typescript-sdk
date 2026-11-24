@@ -1,8 +1,8 @@
-pets.ts:2 cannot read "@bidirekt provides GET "/pets/by name"": remove the quotes, only description="<text>" takes them
+pets.ts:2 cannot read "@bidirekt rest provides GET "/pets/by name"": remove the quotes, only description="<text>" takes them
 pets.ts:7 cannot read "@bidirekt schema name="Pet Status"": remove the quotes, only description="<text>" takes them
 pets.ts:12 cannot read "@bidirekt schema name="Size"": remove the quotes, only description="<text>" takes them
-pets.ts:18 cannot read "@bidirekt provides GET "/pets"": remove the quotes, only description="<text>" takes them
-pets.ts:24 cannot read "@bidirekt consumes "payments_api" GET /charges": remove the quotes, only description="<text>" takes them
+pets.ts:18 cannot read "@bidirekt rest provides GET "/pets"": remove the quotes, only description="<text>" takes them
+pets.ts:24 cannot read "@bidirekt rest consumes "payments_api" GET /charges": remove the quotes, only description="<text>" takes them
 pets.ts:31 cannot read "@bidirekt request "Status"": remove the quotes, only description="<text>" takes them
 pets.ts:32 cannot read "@bidirekt response 201 "Status"": remove the quotes, only description="<text>" takes them
 pets.ts:33 cannot read "@bidirekt response 200 Status[] as "Statuses"": remove the quotes, only description="<text>" takes them

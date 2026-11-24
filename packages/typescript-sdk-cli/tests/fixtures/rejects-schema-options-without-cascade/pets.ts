@@ -1,6 +1,6 @@
 import {
   BidirektField,
-  BidirektProvider,
+  BidirektRestProvider,
   BidirektSchema,
 } from '@bidirekt/typescript-sdk'
 
@@ -23,9 +23,9 @@ export class Visit {
 }
 
 export class PetsController {
-  @BidirektProvider({ method: 'GET', path: '/pets/*', responses: { 200: Pet } })
+  @BidirektRestProvider({ method: 'GET', path: '/pets/*', responses: { 200: Pet } })
   find(): void {}
 
-  @BidirektProvider({ method: 'GET', path: '/pets', responses: { 200: [Pet] } })
+  @BidirektRestProvider({ method: 'GET', path: '/pets', responses: { 200: [Pet] } })
   list(): void {}
 }

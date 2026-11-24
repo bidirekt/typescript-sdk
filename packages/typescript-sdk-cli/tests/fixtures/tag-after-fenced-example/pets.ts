@@ -6,7 +6,7 @@
  * await findPet('42')
  * ```
  *
- * @bidirekt provides GET /pets/*
+ * @bidirekt rest provides GET /pets/*
  * @bidirekt response 200
  * @bidirekt response 404
  */

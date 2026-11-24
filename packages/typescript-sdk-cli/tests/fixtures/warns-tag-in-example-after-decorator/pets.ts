@@ -11,7 +11,7 @@ export class Pet {
  * @example
  * @Injectable()
  * class HealthService {}
- * @bidirekt provides GET /health
+ * @bidirekt rest provides GET /health
  * @bidirekt response 200
  */
 export function documented(): void {}
