@@ -579,18 +579,19 @@ Without a request (no `request` option, no `@bidirekt request` tag), the resourc
 
 `@BidirektGraphqlConsumer({ provider, query, arguments, returns })` on a method declares a GraphQL query the service calls, and `mutation` in place of `query` a mutation; with tags, `@bidirekt graphql consumes <provider> query|mutation <name>` above a handler, with `@bidirekt arguments <schema>` and `@bidirekt returns <type>`. `arguments` is a schema, and `returns` the shape the call reads:
 
-| Returns                 | Decorator                                         | Tag                              | Contract        |
-| ----------------------- | ------------------------------------------------- | -------------------------------- | --------------- |
-| a schema                | `Pet`                                             | `Pet`                            | `Pet`           |
-| a schema or null        | `{ nullable: Pet }`                               | `Pet?`                           | `PetOrNull`     |
-| a list                  | `[Pet]` or `{ list: Pet }`                        | `Pet[]`                          | `PetList`       |
-| a list or null          | `{ list: Pet, nullable: true }`                   | `Pet[]?`                         | `PetListOrNull` |
-| a list of items or null | `{ list: Pet, nullableItems: true }`              | `Pet?[]`                         | `PetOrNullList` |
-| a primitive             | `'boolean'`                                       | `boolean`                        | `Boolean`       |
-| a custom scalar         | `{ scalar: 'DateTime' }`                          | `scalar:DateTime`                | `DateTime`      |
-| an enum                 | `{ enum: ['AVAILABLE', 'SOLD'], name: 'Status' }` | `enum:AVAILABLE\|SOLD as Status` | `Status`        |
+| Returns                 | Decorator                                                     | Tag                                              | Contract        |
+| ----------------------- | ------------------------------------------------------------- | ------------------------------------------------ | --------------- |
+| a schema                | `Pet`                                                         | `Pet`                                            | `Pet`           |
+| a schema or null        | `{ nullable: Pet }`                                           | `Pet?`                                           | `PetOrNull`     |
+| a list                  | `[Pet]` or `{ list: Pet }`                                    | `Pet[]`                                          | `PetList`       |
+| a list or null          | `{ list: Pet, nullable: true }`                               | `Pet[]?`                                         | `PetListOrNull` |
+| a list of items or null | `{ list: Pet, nullableItems: true }`                          | `Pet?[]`                                         | `PetOrNullList` |
+| a primitive             | `'boolean'`                                                   | `boolean`                                        | `Boolean`       |
+| a custom scalar         | `{ scalar: 'DateTime' }`                                      | `scalar:DateTime`                                | `DateTime`      |
+| an enum                 | `{ enum: ['AVAILABLE', 'SOLD'], name: 'Status' }`             | `enum:AVAILABLE\|SOLD as Status`                 | `Status`        |
+| a union                 | `{ union: { Pet: Pet, Owner: Owner }, name: 'SearchResult' }` | `union={Pet: Pet, Owner: Owner} as SearchResult` | `SearchResult`  |
 
-A primitive, a scalar or an enum also takes the place of the schema in a nullable or a list (`{ nullable: 'integer' }`, `'string[]'`, `scalar:DateTime?[]`). Each form but a schema returned as it is becomes a schema of the contract, with the name above, and `name` in the decorator or `as <name>` in the tag gives it another one (`{ nullable: Pet, name: 'MaybePet' }`, `Pet? as MaybePet`). They name only a schema `generate` creates: a schema returned as it is is not copied, the call references it by its own name, so `@bidirekt returns Pet as MyPet` stops `generate`. To call it `MyPet`, name the schema itself, with `@BidirektSchema({ name })` or `@bidirekt schema name=<Name>`. A primitive returned as it is takes another name only in the tag (`boolean as Flag`): in the decorator it is a bare string, `'boolean'`, always written as `Boolean`.
+A primitive, a scalar, an enum or a union also takes the place of the schema in a nullable or a list (`{ nullable: 'integer' }`, `'string[]'`, `scalar:DateTime?[]`). Each key of a union is the name of one of its types in the provider's GraphQL schema, and its value the schema the call reads from that type. Each form but a schema returned as it is becomes a schema of the contract, with the name above, and `name` in the decorator or `as <name>` in the tag gives it another one (`{ nullable: Pet, name: 'MaybePet' }`, `Pet? as MaybePet`). They name only a schema `generate` creates: a schema returned as it is is not copied, the call references it by its own name, so `@bidirekt returns Pet as MyPet` stops `generate`. To call it `MyPet`, name the schema itself, with `@BidirektSchema({ name })` or `@bidirekt schema name=<Name>`. A primitive returned as it is takes another name only in the tag (`boolean as Flag`): in the decorator it is a bare string, `'boolean'`, always written as `Boolean`.
 
 ### Fields
 

@@ -12,7 +12,10 @@ import type {
 } from '../../../model/protocols/graphql/contract.ts'
 import { returnsToSchema } from '../../../model/protocols/graphql/returns-to-schema.ts'
 import type { ProtocolRead } from '../../../protocols.ts'
-import { expressionToSchemaRef } from '../../expression-to-schema-node.ts'
+import {
+  expressionToSchemaRef,
+  expressionToUnionMembers,
+} from '../../expression-to-schema-node.ts'
 import {
   expressionToLiteralOptions,
   literalOptionToBoolean,
@@ -53,6 +56,8 @@ const nullableKeys = ['nullable', 'name']
 const scalarKeys = ['scalar', 'name']
 
 const enumKeys = ['enum', 'name']
+
+const unionKeys = ['union', 'name']
 
 export function sdkDecoratorsToBlocks(
   decorators: Array<SdkDecorator>,
@@ -380,6 +385,9 @@ function expressionToReturnedType(
   if (options.has('enum') && hasOnlyKeys(options, enumKeys)) {
     return optionsToEnum(options, expression)
   }
+  if (options.has('union') && hasOnlyKeys(options, unionKeys)) {
+    return optionsToUnion(options, expression, context)
+  }
   return unreadableReturns(expression)
 }
 
@@ -434,6 +442,32 @@ function optionsToEnum(
   }
 }
 
+function optionsToUnion(
+  options: LiteralOptions,
+  expression: ts.Expression,
+  context: SchemaContext,
+): ReturnedType | Diagnostic {
+  const members = expressionToUnionMembers(
+    options.get('union'),
+    '"union"',
+    context,
+  )
+  if (isDiagnostic(members)) {
+    return members
+  }
+  const name = literalOptionToName(options, 'name')
+  if (isDiagnostic(name)) {
+    return name
+  }
+  if (name === undefined) {
+    return {
+      message: `a union in "returns" needs a name: write { union: {...}, name: '<name>' }`,
+      location: nodeToLocation(expression),
+    }
+  }
+  return { kind: 'union', members, name }
+}
+
 function expressionToStringLiterals(
   expression: ts.Expression,
 ): Array<string> | undefined {
@@ -467,7 +501,7 @@ function hasOnlyKeys(
 
 function unreadableReturns(expression: ts.Expression): Diagnostic {
   return {
-    message: `cannot read "${expression.getText()}" as returns: write a @BidirektSchema class, a primitive such as 'boolean', [Schema], { list: Schema }, { nullable: Schema }, { scalar: '<name>' } or { enum: [...], name: '<name>' }`,
+    message: `cannot read "${expression.getText()}" as returns: write a @BidirektSchema class, a primitive such as 'boolean', [Schema], { list: Schema }, { nullable: Schema }, { scalar: '<name>' }, { enum: [...], name: '<name>' } or { union: {...}, name: '<name>' }`,
     location: nodeToLocation(expression),
   }
 }

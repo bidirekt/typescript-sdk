@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import type { SourceLocation } from '../../../../src/model/contract.ts'
+import type {
+  SourceLocation,
+  UnionMember,
+} from '../../../../src/model/contract.ts'
 import type { ReturnedType } from '../../../../src/model/protocols/graphql/contract.ts'
 import { returnsToSchema } from '../../../../src/model/protocols/graphql/returns-to-schema.ts'
 
@@ -12,6 +15,11 @@ const scalarNode = {
   type: 'string',
   extra: { scalar: 'DateTime' },
 }
+
+const searchMembers: Array<UnionMember> = [
+  { key: 'Pet', node: { type: 'ref', schema: 'Pet' } },
+  { key: 'Owner', node: { type: 'ref', schema: 'Owner' } },
+]
 
 describe('returnsToSchema', () => {
   it('returns a schema by its own name, without a derived schema', () => {
@@ -104,12 +112,13 @@ describe('returnsToSchema', () => {
     )
   })
 
-  it('derives a schema for a primitive, a scalar and an enum, named after each', () => {
+  it('derives a schema for a primitive, a scalar, an enum and a union, named after each', () => {
     const returned: Array<ReturnedType> = [
       { kind: 'primitive', type: 'boolean' },
       { kind: 'scalar', scalar: 'DateTime' },
       { kind: 'scalar', scalar: 'DateTime', name: 'Instant' },
       { kind: 'enum', members: ['AVAILABLE', 'SOLD'], name: 'Status' },
+      { kind: 'union', members: searchMembers, name: 'SearchResult' },
     ]
     assert.deepEqual(
       returned.map((type) => returnsToSchema({ form: 'type', type }, at)),
@@ -146,6 +155,15 @@ describe('returnsToSchema', () => {
           derived: {
             name: 'Status',
             node: { type: 'enum', members: ['AVAILABLE', 'SOLD'] },
+            location: at,
+            derived: true,
+          },
+        },
+        {
+          schema: 'SearchResult',
+          derived: {
+            name: 'SearchResult',
+            node: { type: 'union', members: searchMembers },
             location: at,
             derived: true,
           },

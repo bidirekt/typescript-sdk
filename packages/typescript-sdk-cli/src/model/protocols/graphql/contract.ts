@@ -1,4 +1,8 @@
-import type { PrimitiveType, SourceLocation } from '../../contract.ts'
+import type {
+  PrimitiveType,
+  SourceLocation,
+  UnionMember,
+} from '../../contract.ts'
 
 export type OperationKind = 'query' | 'mutation'
 
@@ -30,6 +34,7 @@ export type ReturnedType =
   | { kind: 'primitive'; type: PrimitiveType }
   | { kind: 'scalar'; scalar: string; name?: string }
   | { kind: 'enum'; members: Array<string>; name: string }
+  | { kind: 'union'; members: Array<UnionMember>; name: string }
 
 export type Returns =
   | { form: 'type'; type: ReturnedType; name?: string }

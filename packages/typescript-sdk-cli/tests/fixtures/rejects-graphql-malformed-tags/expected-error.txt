@@ -3,7 +3,7 @@ clients.ts:14 cannot read "@bidirekt graphql provides query pet": write "@bidire
 clients.ts:20 "@bidirekt graphql consumes petstore_api query pets" needs a "@bidirekt returns <type>" tag in the same comment
 clients.ts:26 cannot read "Pet as MaybePet" as returns: a schema is returned by its own name, write "Pet"
 clients.ts:32 cannot read "enum:AVAILABLE|SOLD" as returns: an enum needs a name, write "enum:AVAILABLE|SOLD as <name>"
-clients.ts:38 cannot read "Pet[][]" as returns: write "<type>", "<type>?", "<type>[]", "<type>[]?", "<type>?[]" or "<type>?[]?", each with an optional "as <name>", where <type> is a schema, a primitive, scalar:<name> or enum:<A>|<B>
+clients.ts:38 cannot read "Pet[][]" as returns: write "<type>", "<type>?", "<type>[]", "<type>[]?", "<type>?[]" or "<type>?[]?", each with an optional "as <name>", where <type> is a schema, a primitive, scalar:<name>, enum:<A>|<B> or union={<key>: <schema>, ...}
 clients.ts:44 cannot read "@bidirekt arguments": write "@bidirekt arguments <schema>"
 clients.ts:46 "@bidirekt returns" is declared more than once in this comment: keep one
 clients.ts:50 "@bidirekt returns" needs a "@bidirekt graphql consumes" tag in the same comment

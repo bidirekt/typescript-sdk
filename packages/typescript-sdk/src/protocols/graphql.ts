@@ -12,6 +12,7 @@ type BidirektGraphqlType =
   | BidirektGraphqlPrimitive
   | { scalar: string; name?: string }
   | { enum: ReadonlyArray<string>; name: string }
+  | { union: Record<string, BidirektSchemaClass>; name: string }
 
 type BidirektGraphqlReturns =
   | BidirektGraphqlType

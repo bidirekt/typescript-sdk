@@ -68,6 +68,7 @@ function typeToName(type: ReturnedType): string {
     case 'scalar':
       return type.name ?? type.scalar
     case 'enum':
+    case 'union':
       return type.name
   }
 }
@@ -82,6 +83,8 @@ function typeToNode(type: ReturnedType): SchemaNode {
       return scalarToNode(type.scalar)
     case 'enum':
       return { type: 'enum', members: type.members }
+    case 'union':
+      return { type: 'union', members: type.members }
   }
 }
 

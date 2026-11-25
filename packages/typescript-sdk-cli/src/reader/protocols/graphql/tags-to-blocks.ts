@@ -15,6 +15,7 @@ import type {
   HandlerTag,
   TaggedComment,
 } from '../../comment-tags.ts'
+import { valueToUnionMembers } from '../../tag-schemas.ts'
 import {
   isSchemaName,
   textToPrimitive,
@@ -27,10 +28,10 @@ const consumesUsage =
 const operationKinds: Array<OperationKind> = ['query', 'mutation']
 
 const returnsPattern =
-  /^([^\s?[\]]+)(\?)?(?:(\[\])(\?)?)?(?: as ([^\s?[\]]+))?$/
+  /^(union=\{[^{}]*\}|[^\s?[\]]+)(\?)?(?:(\[\])(\?)?)?(?: as ([^\s?[\]]+))?$/
 
 const returnsUsage =
-  '"<type>", "<type>?", "<type>[]", "<type>[]?", "<type>?[]" or "<type>?[]?", each with an optional "as <name>", where <type> is a schema, a primitive, scalar:<name> or enum:<A>|<B>'
+  '"<type>", "<type>?", "<type>[]", "<type>[]?", "<type>?[]" or "<type>?[]?", each with an optional "as <name>", where <type> is a schema, a primitive, scalar:<name>, enum:<A>|<B> or union={<key>: <schema>, ...}'
 
 export function taggedCommentsToBlocks(
   comments: Array<TaggedComment>,
@@ -262,6 +263,19 @@ function textToReturnedType(
       }
     }
     return { kind: 'enum', members, name }
+  }
+  if (written.startsWith('union=')) {
+    const members = valueToUnionMembers(written.slice('union='.length))
+    if (members === undefined) {
+      return unreadableReturns(text, location)
+    }
+    if (name === undefined) {
+      return {
+        message: `cannot read "${text}" as returns: a union needs a name, write "${text} as <name>"`,
+        location,
+      }
+    }
+    return { kind: 'union', members, name }
   }
   if (!isSchemaName(written)) {
     return unreadableReturns(text, location)

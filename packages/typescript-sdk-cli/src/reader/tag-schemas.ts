@@ -392,7 +392,9 @@ function keyToUsage(key: string): string {
   return `"${key}=<value>"`
 }
 
-function valueToUnionMembers(value: string): Array<UnionMember> | undefined {
+export function valueToUnionMembers(
+  value: string,
+): Array<UnionMember> | undefined {
   const braces = unionPattern.exec(value)
   if (braces === null) {
     return undefined

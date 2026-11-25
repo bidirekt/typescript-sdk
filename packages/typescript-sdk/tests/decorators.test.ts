@@ -315,6 +315,8 @@ describe('GraphQL consumer options', () => {
       "@BidirektGraphqlConsumer({ provider: 'petstore_api', query: 'now', returns: { scalar: 'DateTime' } })",
       "@BidirektGraphqlConsumer({ provider: 'petstore_api', query: 'dates', returns: { list: { scalar: 'DateTime' }, nullableItems: true } })",
       "@BidirektGraphqlConsumer({ provider: 'petstore_api', query: 'status', returns: { enum: ['AVAILABLE', 'SOLD'], name: 'Status' } })",
+      "@BidirektGraphqlConsumer({ provider: 'petstore_api', query: 'match', returns: { union: { Pet: Pet }, name: 'SearchResult' } })",
+      "@BidirektGraphqlConsumer({ provider: 'petstore_api', query: 'search', returns: { list: { union: { Pet: Pet }, name: 'SearchResult' } } })",
       "@BidirektGraphqlConsumer({ provider: 'petstore_api', mutation: 'deletePet', returns: { nullable: 'boolean' } })",
     ],
     'query-and-mutation': [
@@ -325,6 +327,9 @@ describe('GraphQL consumer options', () => {
     ],
     'enum-without-name': [
       "@BidirektGraphqlConsumer({ provider: 'petstore_api', query: 'status', returns: { enum: ['AVAILABLE'] } })",
+    ],
+    'union-without-name': [
+      "@BidirektGraphqlConsumer({ provider: 'petstore_api', query: 'search', returns: { union: { Pet: Pet } } })",
     ],
   }
   let optionsRoot = ''
@@ -399,6 +404,13 @@ describe('GraphQL consumer options', () => {
     assert.match(
       errors.get('enum-without-name')?.join('\n') ?? '',
       /'{ enum: string\[\]; }' is not assignable to type 'BidirektGraphqlReturns'/,
+    )
+  })
+
+  test('does not compile with a union without a name', () => {
+    assert.match(
+      errors.get('union-without-name')?.join('\n') ?? '',
+      /'{ union: { Pet: typeof Pet; }; }' is not assignable to type 'BidirektGraphqlReturns'/,
     )
   })
 })
