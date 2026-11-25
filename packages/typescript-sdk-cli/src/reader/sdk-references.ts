@@ -2,7 +2,7 @@ import ts from 'typescript'
 import type { SourceLocation } from '../model/contract.ts'
 import type { ProtocolModule } from '../protocols.ts'
 import { nodeToLocation } from './location.ts'
-import { programToUserFiles } from './program.ts'
+import { programToUserFiles, sdkPackage } from './program.ts'
 import type { ProjectProgram } from './program.ts'
 
 export type DecoratorTarget = {
@@ -22,7 +22,7 @@ export type SdkDecorator = {
 export type SdkReference =
   | SdkDecorator
   | {
-      use: 'misplaced' | 'unregistered'
+      use: 'misplaced' | 'unregistered' | 'unexported'
       name: string
       message: string
       location: SourceLocation
@@ -37,6 +37,17 @@ type FoundReference = {
   expression: ts.Identifier | ts.PropertyAccessExpression
   call: ts.CallExpression | undefined
   location: SourceLocation
+}
+
+type SdkModule = {
+  symbol: ts.Symbol
+  names: ReadonlySet<string>
+  functions: ReadonlyMap<ts.Symbol, string>
+}
+
+type ImportedNames = {
+  from: ts.Node
+  names: ReadonlyArray<ts.ModuleExportName>
 }
 
 export const fieldTarget: DecoratorTarget = {
@@ -74,15 +85,17 @@ export function programToSdkReferences(
 ): Array<SdkReference> {
   const targets = protocolsToDecoratorTargets(protocols)
   const checker = projectProgram.program.getTypeChecker()
-  const sdkExports = programToSdkExports(projectProgram, checker)
+  const sdk = programToSdkModule(projectProgram, checker)
   const found: Array<FoundReference> = []
-  if (sdkExports.size === 0) {
+  const unexported: Array<SdkReference> = []
+  if (sdk === undefined) {
     return []
   }
   const pending: Array<ts.Node> = programToUserFiles(projectProgram)
     .filter((file) => !file.isDeclarationFile)
     .reverse()
   for (let node = pending.pop(); node !== undefined; node = pending.pop()) {
+    unexported.push(...nodeToUnexported(node, checker, sdk))
     if (
       ts.isImportDeclaration(node) ||
       ts.isImportEqualsDeclaration(node) ||
@@ -93,7 +106,7 @@ export function programToSdkReferences(
       continue
     }
     if (ts.isIdentifier(node)) {
-      const name = identifierToSdkExportName(node, checker, sdkExports)
+      const name = identifierToSdkExportName(node, checker, sdk.functions)
       if (name !== undefined) {
         const expression = identifierToExpression(node)
         found.push({
@@ -110,7 +123,102 @@ export function programToSdkReferences(
       pending.push(children[index])
     }
   }
-  return foundToSdkReferences(found, targets)
+  return [...foundToSdkReferences(found, targets), ...unexported]
+}
+
+function nodeToUnexported(
+  node: ts.Node,
+  checker: ts.TypeChecker,
+  sdk: SdkModule,
+): Array<SdkReference> {
+  const imported = nodeToImportedNames(node)
+  if (imported === undefined || !isSdkModule(imported.from, checker, sdk)) {
+    return []
+  }
+  return imported.names
+    .filter(({ text }) => !sdk.names.has(text))
+    .map((name) => ({
+      use: 'unexported',
+      name: name.text,
+      message: `${name.text} is not exported by ${sdkPackage}, so it is not read`,
+      location: nodeToLocation(name),
+    }))
+}
+
+function nodeToImportedNames(node: ts.Node): ImportedNames | undefined {
+  if (
+    ts.isImportDeclaration(node) &&
+    node.importClause?.namedBindings !== undefined &&
+    ts.isNamedImports(node.importClause.namedBindings)
+  ) {
+    return {
+      from: node.moduleSpecifier,
+      names: node.importClause.namedBindings.elements.map(specifierToName),
+    }
+  }
+  if (
+    ts.isExportDeclaration(node) &&
+    node.moduleSpecifier !== undefined &&
+    node.exportClause !== undefined &&
+    ts.isNamedExports(node.exportClause)
+  ) {
+    return {
+      from: node.moduleSpecifier,
+      names: node.exportClause.elements.map(specifierToName),
+    }
+  }
+  if (
+    ts.isImportEqualsDeclaration(node) &&
+    ts.isQualifiedName(node.moduleReference)
+  ) {
+    return {
+      from: node.moduleReference.left,
+      names: [node.moduleReference.right],
+    }
+  }
+  if (ts.isPropertyAccessExpression(node) && ts.isIdentifier(node.name)) {
+    return { from: node.expression, names: [node.name] }
+  }
+  if (ts.isBindingElement(node)) {
+    return requireBindingToImportedNames(node)
+  }
+  return undefined
+}
+
+function specifierToName(
+  specifier: ts.ImportSpecifier | ts.ExportSpecifier,
+): ts.ModuleExportName {
+  return specifier.propertyName ?? specifier.name
+}
+
+function requireBindingToImportedNames(
+  binding: ts.BindingElement,
+): ImportedNames | undefined {
+  const name = binding.propertyName ?? binding.name
+  const declaration = binding.parent.parent
+  if (
+    !ts.isObjectBindingPattern(binding.parent) ||
+    !ts.isVariableDeclaration(declaration) ||
+    declaration.initializer === undefined ||
+    !ts.isCallExpression(declaration.initializer) ||
+    !(ts.isIdentifier(name) || ts.isStringLiteral(name))
+  ) {
+    return undefined
+  }
+  const specifier = declaration.initializer.arguments.at(0)
+  if (specifier === undefined) {
+    return undefined
+  }
+  return { from: specifier, names: [name] }
+}
+
+function isSdkModule(
+  node: ts.Node,
+  checker: ts.TypeChecker,
+  sdk: SdkModule,
+): boolean {
+  const symbol = checker.getSymbolAtLocation(node)
+  return symbol !== undefined && symbolToTarget(symbol, checker) === sdk.symbol
 }
 
 function nodeToChildren(node: ts.Node): Array<ts.Node> {
@@ -209,26 +317,27 @@ function elementToDescription(
   return target?.description ?? 'this element'
 }
 
-function programToSdkExports(
+function programToSdkModule(
   { program, sdkEntry }: ProjectProgram,
   checker: ts.TypeChecker,
-): Map<ts.Symbol, string> {
-  const sdkExports = new Map<ts.Symbol, string>()
+): SdkModule | undefined {
   const entry = program.getSourceFile(sdkEntry)
   if (entry === undefined) {
-    return sdkExports
+    return undefined
   }
-  const entryModule = checker.getSymbolAtLocation(entry)
-  if (entryModule === undefined) {
-    return sdkExports
+  const symbol = checker.getSymbolAtLocation(entry)
+  if (symbol === undefined) {
+    return undefined
   }
-  for (const exported of checker.getExportsOfModule(entryModule)) {
+  const exports = checker.getExportsOfModule(symbol)
+  const functions = new Map<ts.Symbol, string>()
+  for (const exported of exports) {
     const target = symbolToTarget(exported, checker)
     if (target.flags & ts.SymbolFlags.Function) {
-      sdkExports.set(target, exported.name)
+      functions.set(target, exported.name)
     }
   }
-  return sdkExports
+  return { symbol, names: new Set(exports.map(({ name }) => name)), functions }
 }
 
 export function symbolToTarget(
@@ -244,7 +353,7 @@ export function symbolToTarget(
 function identifierToSdkExportName(
   identifier: ts.Identifier,
   checker: ts.TypeChecker,
-  sdkExports: Map<ts.Symbol, string>,
+  sdkExports: ReadonlyMap<ts.Symbol, string>,
 ): string | undefined {
   const symbol = identifierToSymbol(identifier, checker)
   if (symbol === undefined) {

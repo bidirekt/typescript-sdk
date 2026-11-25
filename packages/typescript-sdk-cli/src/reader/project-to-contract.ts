@@ -94,6 +94,7 @@ export function projectToContract(
     contract: merged.contract,
     errors: [
       ...referencesToDiagnostics(references, 'unregistered'),
+      ...referencesToDiagnostics(references, 'unexported'),
       ...new Set([
         ...schemas.errors,
         ...reads.flatMap(({ read }) => read.errors),
@@ -130,7 +131,7 @@ function isProtocolDecorator(
 
 function referencesToDiagnostics(
   references: Array<SdkReference>,
-  use: 'misplaced' | 'unregistered',
+  use: 'misplaced' | 'unregistered' | 'unexported',
 ): Array<Diagnostic> {
   return references.flatMap((reference) => {
     if (reference.use === 'decorator' || reference.use !== use) {

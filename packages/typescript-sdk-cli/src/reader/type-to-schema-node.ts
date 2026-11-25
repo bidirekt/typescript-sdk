@@ -242,11 +242,12 @@ function walkToShapedLeaf(
   if (isDiagnostic(shaped)) {
     return shaped
   }
+  const flags = walkToFlags(typeNode, context, walk)
   let node = shaped.node
-  if (parts.nullable) {
+  if (flags.nullable) {
     node = { ...node, nullable: true }
   }
-  return { node, optional: parts.optional || shaped.optional }
+  return { node, optional: flags.optional || shaped.optional }
 }
 
 function memberToShapedLeaf(
