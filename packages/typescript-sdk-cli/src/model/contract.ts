@@ -5,6 +5,14 @@ export type SourceLocation = {
   line: number
 }
 
+export function compareLocations(a: SourceLocation, b: SourceLocation): number {
+  const fileOrder = Buffer.compare(Buffer.from(a.file), Buffer.from(b.file))
+  if (fileOrder !== 0) {
+    return fileOrder
+  }
+  return a.line - b.line
+}
+
 export type PrimitiveType =
   'string' | 'integer' | 'float' | 'number' | 'boolean'
 

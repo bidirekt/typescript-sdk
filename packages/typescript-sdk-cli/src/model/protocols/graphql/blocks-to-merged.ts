@@ -1,3 +1,4 @@
+import { compareLocations } from '../../contract.ts'
 import type { SourceLocation } from '../../contract.ts'
 import type { Diagnostic } from '../../diagnostic.ts'
 import type { MergedBlock, SideBlock } from '../../../protocols.ts'
@@ -43,7 +44,9 @@ function graphsToMerged(
   graphs: Array<Graph>,
   addConflict: (conflict: Conflict) => void,
 ): Graph {
-  const [first, ...others] = [...graphs].sort(compareLocations)
+  const [first, ...others] = [...graphs].sort((a, b) =>
+    compareLocations(a.location, b.location),
+  )
   for (const other of others) {
     if (other.name !== first.name) {
       addConflict({
@@ -108,15 +111,4 @@ function usesToConflict(
 
 function operationToKey(operation: Operation): string {
   return JSON.stringify([operation.kind, operation.name])
-}
-
-function compareLocations(a: Graph, b: Graph): number {
-  const fileOrder = Buffer.compare(
-    Buffer.from(a.location.file),
-    Buffer.from(b.location.file),
-  )
-  if (fileOrder !== 0) {
-    return fileOrder
-  }
-  return a.location.line - b.location.line
 }

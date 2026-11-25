@@ -1,6 +1,8 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
+import { compareLocations } from './model/contract.ts'
+import type { SourceLocation } from './model/contract.ts'
 import { contractToProtocolBlocks } from './model/declarations-to-contract.ts'
 import type { Diagnostic } from './model/diagnostic.ts'
 import { defaultProtocols } from './protocols.ts'
@@ -19,6 +21,8 @@ const usage =
   'Usage: typescript-sdk generate [--check] [--project <tsconfig>] [--out <file>]\n'
 
 const defaultOutput = join('contracts', 'generated.yaml')
+
+const noLocation: SourceLocation = { file: '', line: 0 }
 
 type GenerateOptions = {
   check: boolean
@@ -182,14 +186,7 @@ function errorToReason(error: unknown): string {
 }
 
 function compareDiagnostics(a: Diagnostic, b: Diagnostic): number {
-  const fileOrder = Buffer.compare(
-    Buffer.from(a.location?.file ?? ''),
-    Buffer.from(b.location?.file ?? ''),
-  )
-  if (fileOrder !== 0) {
-    return fileOrder
-  }
-  return (a.location?.line ?? 0) - (b.location?.line ?? 0)
+  return compareLocations(a.location ?? noLocation, b.location ?? noLocation)
 }
 
 function diagnosticToLine(
