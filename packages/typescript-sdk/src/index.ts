@@ -1,8 +1,5 @@
-type BidirektDecorator = (
-  target: unknown,
-  context?: unknown,
-  descriptor?: unknown,
-) => void
+import { ignoreDecoratedElement } from './decorator.ts'
+import type { BidirektDecorator, BidirektSchemaClass } from './decorator.ts'
 
 type BidirektPrimitive = 'string' | 'integer' | 'float' | 'number' | 'boolean'
 
@@ -11,8 +8,6 @@ type BidirektNestedType<T extends string> = T | `${T}[]` | `map<${T}>`
 export type BidirektFieldType = BidirektNestedType<
   BidirektNestedType<BidirektNestedType<BidirektPrimitive>>
 >
-
-type BidirektSchemaClass = abstract new (...args: never) => unknown
 
 export type BidirektBody =
   | BidirektSchemaClass
@@ -31,10 +26,6 @@ export interface BidirektFieldOptions {
   nullable?: boolean
   description?: string
   union?: Record<string, BidirektSchemaClass>
-}
-
-function ignoreDecoratedElement(): undefined {
-  return undefined
 }
 
 export function BidirektSchema(

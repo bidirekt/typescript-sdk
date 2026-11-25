@@ -1,12 +1,6 @@
+import { ignoreDecoratedElement } from '../decorator.ts'
+import type { BidirektDecorator, BidirektSchemaClass } from '../decorator.ts'
 import type { BidirektFieldOptions, BidirektFieldType } from '../index.ts'
-
-type BidirektDecorator = (
-  target: unknown,
-  context?: unknown,
-  descriptor?: unknown,
-) => void
-
-type BidirektSchemaClass = abstract new (...args: never) => unknown
 
 type BidirektGraphqlPrimitive = Exclude<
   BidirektFieldType,
@@ -43,10 +37,6 @@ export type BidirektGraphqlConsumerOptions = BidirektGraphqlOperation & {
 export interface BidirektGraphqlFieldOptions extends BidirektFieldOptions {
   scalar?: string
   arguments?: BidirektSchemaClass
-}
-
-function ignoreDecoratedElement(): undefined {
-  return undefined
 }
 
 export function BidirektGraphqlConsumer(

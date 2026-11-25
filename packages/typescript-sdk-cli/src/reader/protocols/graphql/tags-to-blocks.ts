@@ -1,4 +1,4 @@
-import type { PrimitiveType, SourceLocation } from '../../../model/contract.ts'
+import type { SourceLocation } from '../../../model/contract.ts'
 import { isDiagnostic } from '../../../model/diagnostic.ts'
 import type { Diagnostic } from '../../../model/diagnostic.ts'
 import type {
@@ -17,20 +17,15 @@ import type {
   HandlerTag,
   TaggedComment,
 } from '../../comment-tags.ts'
-import { isSchemaName } from '../../type-text-to-schema-node.ts'
+import {
+  isSchemaName,
+  textToPrimitive,
+} from '../../type-text-to-schema-node.ts'
 
 const consumesUsage =
   '@bidirekt graphql consumes <provider> query|mutation <name>'
 
 const operationKinds: Array<OperationKind> = ['query', 'mutation']
-
-const primitives: Array<PrimitiveType> = [
-  'string',
-  'integer',
-  'float',
-  'number',
-  'boolean',
-]
 
 const returnsPattern =
   /^([^\s?[\]]+)(\?)?(?:(\[\])(\?)?)?(?: as ([^\s?[\]]+))?$/
@@ -252,7 +247,7 @@ function textToReturnedType(
   text: string,
   location: SourceLocation,
 ): ReturnedType | Diagnostic {
-  const primitive = primitives.find((type) => type === written)
+  const primitive = textToPrimitive(written)
   if (primitive !== undefined) {
     return { kind: 'primitive', type: primitive }
   }

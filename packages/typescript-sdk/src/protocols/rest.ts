@@ -1,10 +1,6 @@
+import { ignoreDecoratedElement } from '../decorator.ts'
+import type { BidirektDecorator } from '../decorator.ts'
 import type { BidirektBody } from '../index.ts'
-
-type BidirektDecorator = (
-  target: unknown,
-  context?: unknown,
-  descriptor?: unknown,
-) => void
 
 export type BidirektRestHttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 
@@ -17,10 +13,6 @@ export interface BidirektRestProviderOptions {
 
 export interface BidirektRestConsumerOptions extends BidirektRestProviderOptions {
   provider: string
-}
-
-function ignoreDecoratedElement(): undefined {
-  return undefined
 }
 
 export function BidirektRestProvider(

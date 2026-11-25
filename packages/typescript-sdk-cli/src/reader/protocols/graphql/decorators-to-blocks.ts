@@ -1,5 +1,4 @@
 import ts from 'typescript'
-import type { PrimitiveType } from '../../../model/contract.ts'
 import { isDiagnostic } from '../../../model/diagnostic.ts'
 import type { Diagnostic } from '../../../model/diagnostic.ts'
 import type {
@@ -22,18 +21,16 @@ import {
 import type { LiteralOptions } from '../../literal-options.ts'
 import { nodeToLocation } from '../../location.ts'
 import type { SchemaContext } from '../../schema-context.ts'
-import { isStatic } from '../../sdk-references.ts'
+import { fieldTarget } from '../../sdk-references.ts'
 import type { DecoratorTarget, SdkDecorator } from '../../sdk-references.ts'
+import { textToPrimitive } from '../../type-text-to-schema-node.ts'
 
 export const graphqlDecoratorTargets: Record<string, DecoratorTarget> = {
   BidirektGraphqlConsumer: {
     isTarget: ts.isMethodDeclaration,
     description: 'a method',
   },
-  BidirektGraphqlField: {
-    isTarget: (node) => ts.isPropertyDeclaration(node) && !isStatic(node),
-    description: 'a property',
-  },
+  BidirektGraphqlField: fieldTarget,
   BidirektGraph: {
     isTarget: ts.isClassDeclaration,
     description: 'a class declaration',
@@ -46,14 +43,6 @@ const consumerOptions = [
   'mutation',
   'arguments',
   'returns',
-]
-
-const primitives: Array<PrimitiveType> = [
-  'string',
-  'integer',
-  'float',
-  'number',
-  'boolean',
 ]
 
 const listKeys = ['list', 'nullable', 'nullableItems', 'name']
@@ -226,7 +215,7 @@ function expressionToReturns(
   context: SchemaContext,
 ): Returns | Diagnostic {
   if (ts.isStringLiteralLike(expression) && expression.text.endsWith('[]')) {
-    const type = textToPrimitive(expression.text.slice(0, -'[]'.length))
+    const type = textToReturnedPrimitive(expression.text.slice(0, -'[]'.length))
     if (type === undefined) {
       return unreadableReturns(expression)
     }
@@ -338,7 +327,9 @@ function expressionToReturnedType(
     return { kind: 'schema', schema: ref.schema }
   }
   if (ts.isStringLiteralLike(expression)) {
-    return textToPrimitive(expression.text) ?? unreadableReturns(expression)
+    return (
+      textToReturnedPrimitive(expression.text) ?? unreadableReturns(expression)
+    )
   }
   if (!ts.isObjectLiteralExpression(expression)) {
     return unreadableReturns(expression)
@@ -423,8 +414,8 @@ function expressionToStringLiterals(
   return members
 }
 
-function textToPrimitive(text: string): ReturnedType | undefined {
-  const type = primitives.find((primitive) => primitive === text)
+function textToReturnedPrimitive(text: string): ReturnedType | undefined {
+  const type = textToPrimitive(text)
   if (type === undefined) {
     return undefined
   }

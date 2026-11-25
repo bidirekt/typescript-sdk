@@ -39,15 +39,17 @@ type FoundReference = {
   location: SourceLocation
 }
 
+export const fieldTarget: DecoratorTarget = {
+  isTarget: (node) => ts.isPropertyDeclaration(node) && !isStatic(node),
+  description: 'a property',
+}
+
 const coreTargets: Record<string, DecoratorTarget> = {
   BidirektSchema: {
     isTarget: ts.isClassDeclaration,
     description: 'a class declaration',
   },
-  BidirektField: {
-    isTarget: (node) => ts.isPropertyDeclaration(node) && !isStatic(node),
-    description: 'a property',
-  },
+  BidirektField: fieldTarget,
 }
 
 export function protocolsToDecoratorTargets(
