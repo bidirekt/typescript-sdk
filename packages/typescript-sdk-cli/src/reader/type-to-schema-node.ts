@@ -257,19 +257,15 @@ function memberToShapedLeaf(
 ): TranslatedType | Diagnostic {
   const items = memberToListItems(member, context)
   if (items !== undefined) {
-    const shaped = walkToShapedLeaf(items, leaf, context, walk)
-    if (isDiagnostic(shaped)) {
-      return shaped
+    const node = translatedToNestedNode(
+      walkToShapedLeaf(items, leaf, context, walk),
+      items,
+      context,
+    )
+    if (isDiagnostic(node)) {
+      return node
     }
-    if (shaped.optional) {
-      return {
-        message: typeToUntranslatableMessage(
-          unparenthesized(items).getText(),
-          context.hints,
-        ),
-      }
-    }
-    return { node: { type: 'array', items: shaped.node }, optional: false }
+    return { node: { type: 'array', items: node }, optional: false }
   }
   const followed = memberToFollowed(member, context, walk)
   if (followed !== undefined) {
@@ -342,12 +338,11 @@ function typeNodeToParts(typeNode: ts.TypeNode): TypeParts {
   return parts
 }
 
-function typeNodeToNestedNode(
+function translatedToNestedNode(
+  translated: TranslatedType | Diagnostic,
   typeNode: ts.TypeNode,
   context: SchemaContext,
-  walk: Walk,
 ): SchemaNode | Diagnostic {
-  const translated = walkToTranslatedType(typeNode, context, walk)
   if (isDiagnostic(translated)) {
     return translated
   }
@@ -422,8 +417,9 @@ function memberToTranslatedType(
   if (isNumericLiteralType(member)) {
     return { message: numericLiteralMessage(member.getText(), context.hints) }
   }
-  if (ts.isArrayTypeNode(member)) {
-    return arrayToTranslatedType(member.elementType, context, walk)
+  const items = memberToListItems(member, context)
+  if (items !== undefined) {
+    return arrayToTranslatedType(items, context, walk)
   }
   if (
     ts.isTypeOperatorNode(member) &&
@@ -520,9 +516,6 @@ function libraryReferenceToTranslatedType(
   context: SchemaContext,
   walk: Walk,
 ): TranslatedType | Diagnostic {
-  if (listNames.includes(name) && typeArguments.length === 1) {
-    return arrayToTranslatedType(typeArguments[0], context, walk)
-  }
   if ((name === 'Record' || name === 'Object') && typeArguments.length === 2) {
     const [key, values] = typeArguments
     if (!isStringType(key, context)) {
@@ -547,7 +540,11 @@ function arrayToTranslatedType(
   context: SchemaContext,
   walk: Walk,
 ): TranslatedType | Diagnostic {
-  const node = typeNodeToNestedNode(items, context, walk)
+  const node = translatedToNestedNode(
+    walkToTranslatedType(items, context, walk),
+    items,
+    context,
+  )
   if (isDiagnostic(node)) {
     return node
   }
@@ -559,7 +556,11 @@ function mapToTranslatedType(
   context: SchemaContext,
   walk: Walk,
 ): TranslatedType | Diagnostic {
-  const node = typeNodeToNestedNode(values, context, walk)
+  const node = translatedToNestedNode(
+    walkToTranslatedType(values, context, walk),
+    values,
+    context,
+  )
   if (isDiagnostic(node)) {
     return node
   }
