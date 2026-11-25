@@ -1,4 +1,5 @@
 import ts from 'typescript'
+import type { SourceLocation } from '../../../model/contract.ts'
 import { isDiagnostic } from '../../../model/diagnostic.ts'
 import type { Diagnostic } from '../../../model/diagnostic.ts'
 import type {
@@ -127,20 +128,55 @@ function consumerToRead(
   ) {
     return
   }
-  const returnsLocation = nodeToLocation(returnsExpression)
+  consumedToRead(
+    {
+      provider,
+      ...operation,
+      arguments: argumentsUse,
+      returns,
+      returnsLocation: nodeToLocation(returnsExpression),
+      location,
+    },
+    read,
+  )
+}
+
+export type ConsumedOperation = {
+  provider: string
+  kind: OperationKind
+  name: string
+  arguments?: SchemaUse
+  returns: Returns
+  returnsLocation: SourceLocation
+  location: SourceLocation
+}
+
+export function consumedToRead(
+  {
+    provider,
+    kind,
+    name,
+    arguments: argumentsUse,
+    returns,
+    returnsLocation,
+    location,
+  }: ConsumedOperation,
+  read: ProtocolRead<GraphqlBlock>,
+): void {
   const { schema, derived } = returnsToSchema(returns, returnsLocation)
   if (derived !== undefined) {
     read.derived.push(derived)
   }
-  const declared: Operation = {
-    ...operation,
+  const operation: Operation = {
+    kind,
+    name,
     returns: { schema, location: returnsLocation },
     location,
   }
   if (argumentsUse !== undefined) {
-    declared.arguments = argumentsUse
+    operation.arguments = argumentsUse
   }
-  read.blocks.push({ provider, block: { operations: [declared] } })
+  read.blocks.push({ provider, block: { operations: [operation] } })
 }
 
 function optionsToOperation(

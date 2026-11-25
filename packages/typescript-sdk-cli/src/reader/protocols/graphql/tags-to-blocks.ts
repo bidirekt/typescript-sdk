@@ -3,13 +3,11 @@ import { isDiagnostic } from '../../../model/diagnostic.ts'
 import type { Diagnostic } from '../../../model/diagnostic.ts'
 import type {
   GraphqlBlock,
-  Operation,
   OperationKind,
   ReturnedType,
   Returns,
   SchemaUse,
 } from '../../../model/protocols/graphql/contract.ts'
-import { returnsToSchema } from '../../../model/protocols/graphql/returns-to-schema.ts'
 import type { ProtocolRead } from '../../../protocols.ts'
 import { isHandlerTag, tagToText } from '../../comment-tags.ts'
 import type {
@@ -21,6 +19,7 @@ import {
   isSchemaName,
   textToPrimitive,
 } from '../../type-text-to-schema-node.ts'
+import { consumedToRead } from './decorators-to-blocks.ts'
 
 const consumesUsage =
   '@bidirekt graphql consumes <provider> query|mutation <name>'
@@ -138,23 +137,16 @@ function tagsToOperation(
   ) {
     return
   }
-  const { schema, derived } = returnsToSchema(returns, returnsTag.location)
-  if (derived !== undefined) {
-    read.derived.push(derived)
-  }
-  const operation: Operation = {
-    kind: consumed.kind,
-    name: consumed.name,
-    returns: { schema, location: returnsTag.location },
-    location: handler.location,
-  }
-  if (argumentsUse !== undefined) {
-    operation.arguments = argumentsUse
-  }
-  read.blocks.push({
-    provider: consumed.provider,
-    block: { operations: [operation] },
-  })
+  consumedToRead(
+    {
+      ...consumed,
+      arguments: argumentsUse,
+      returns,
+      returnsLocation: returnsTag.location,
+      location: handler.location,
+    },
+    read,
+  )
 }
 
 function isSameKeyword(tag: CommentTag): (other: CommentTag) => boolean {
