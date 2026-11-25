@@ -20,18 +20,23 @@ export function nodeToArguments(node: SchemaNode): string | undefined {
   return nodeToExtraText(node, 'arguments')
 }
 
+export function fieldOptionsToLeaf(
+  options: Record<string, OptionValue>,
+): SchemaNode | undefined {
+  if (!Object.hasOwn(options, 'scalar')) {
+    return undefined
+  }
+  return scalarToNode(options.scalar)
+}
+
 export function fieldOptionsToNode(
   options: Record<string, OptionValue>,
   node: SchemaNode,
 ): SchemaNode {
-  let graphqlNode = node
-  if (Object.hasOwn(options, 'scalar')) {
-    graphqlNode = nodeToScalarNode(node, options.scalar)
+  if (!Object.hasOwn(options, 'arguments')) {
+    return node
   }
-  if (Object.hasOwn(options, 'arguments')) {
-    graphqlNode = withExtra(graphqlNode, { arguments: options.arguments })
-  }
-  return graphqlNode
+  return withExtra(node, { arguments: options.arguments })
 }
 
 export function nodeToArgumentsSchemas(node: SchemaNode): Array<string> {
@@ -40,23 +45,6 @@ export function nodeToArgumentsSchemas(node: SchemaNode): Array<string> {
     return []
   }
   return [schema]
-}
-
-function nodeToScalarNode(node: SchemaNode, scalar: string): SchemaNode {
-  if (node.type === 'array') {
-    return { ...node, items: nodeToScalarNode(node.items, scalar) }
-  }
-  const scalarNode = scalarToNode(scalar)
-  if (node.optional !== undefined) {
-    scalarNode.optional = node.optional
-  }
-  if (node.nullable !== undefined) {
-    scalarNode.nullable = node.nullable
-  }
-  if (node.description !== undefined) {
-    scalarNode.description = node.description
-  }
-  return scalarNode
 }
 
 function nodeToExtraText(

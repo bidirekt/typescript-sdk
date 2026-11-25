@@ -10,7 +10,11 @@ import type { ProtocolModule } from '../protocols.ts'
 import { isHandlerTag, tagToText } from './comment-tags.ts'
 import type { CommentTag, TaggedComment } from './comment-tags.ts'
 import { namesToChoice } from './literal-options.ts'
-import { fieldOptionsToProperty } from './schema-classes.ts'
+import {
+  fieldOptionsToLeaf,
+  fieldOptionsToProperty,
+  withLeaf,
+} from './schema-classes.ts'
 import type { SdkDecorator } from './sdk-references.ts'
 import {
   argumentsToOptions,
@@ -198,11 +202,16 @@ function tagToBlockProperty(
   if (isDiagnostic(options)) {
     return options
   }
-  if (options.declared === undefined) {
+  const leaf = fieldOptionsToLeaf(options)
+  let read = leaf
+  if (options.declared !== undefined) {
+    read = withLeaf(options.declared, leaf)
+  }
+  if (read === undefined) {
     return {
       message: `field "${name}" in a handler's comment needs its type: declare it with "type=<type>"`,
       location: tag.location,
     }
   }
-  return fieldOptionsToProperty(name, options.declared, options, tag.location)
+  return fieldOptionsToProperty(name, read, options, tag.location)
 }

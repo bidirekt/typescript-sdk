@@ -28,6 +28,7 @@ import type { LiteralOptions } from './literal-options.ts'
 import { nodeToLocation } from './location.ts'
 import {
   builtDeclarationToDiagnostic,
+  fieldDecoratorHints,
   isLibrarySymbol,
   isObjectDeclaration,
   javaScriptTagHints,
@@ -51,9 +52,10 @@ import {
 import {
   typeNodeToDeclaredUnion,
   typeNodeToFlags,
+  typeNodeToShapedLeaf,
   typeNodeToTranslatedType,
 } from './type-to-schema-node.ts'
-import type { NullabilityFlags } from './type-to-schema-node.ts'
+import type { NullabilityFlags, TranslatedType } from './type-to-schema-node.ts'
 
 export type ReadSchemas = {
   schemas: Array<NamedSchema>
@@ -146,6 +148,16 @@ export function sdkReferencesToSchemas(
           message: `@${reference.name} and "${tagged.label}" are both on this property: keep one`,
           location: reference.location,
         })
+        continue
+      }
+      const decorated = fieldAnnotations.get(element)
+      if (
+        decorated?.from === 'decorator' &&
+        decorated.name !== reference.name
+      ) {
+        const message = `@${decorated.name} and @${reference.name} are both on this property: keep one`
+        errors.add({ message, location: nodeToLocation(decorated.call) })
+        errors.add({ message, location: reference.location })
         continue
       }
       fieldAnnotations.set(element, {
@@ -599,7 +611,10 @@ function annotationToContext(
   context: SchemaContext,
 ): SchemaContext {
   if (annotation.from !== 'tag') {
-    return context
+    return {
+      ...context,
+      hints: { ...context.hints, ...fieldDecoratorHints(annotation.name) },
+    }
   }
   if ((field.flags & ts.NodeFlags.JavaScriptFile) !== 0) {
     return { ...context, hints: javaScriptTagHints }
@@ -623,6 +638,7 @@ function fieldToSchemaNode(
   context: SchemaContext,
 ): SchemaNode | Diagnostic {
   const typeNode = field.type ?? ts.getJSDocType(field)
+  const leaf = fieldOptionsToLeaf(options)
   if (options.declared !== undefined) {
     const declared = declaredToFieldNode(options.declared, typeNode, context)
     if (isDiagnostic(declared)) {
@@ -630,13 +646,13 @@ function fieldToSchemaNode(
     }
     const flags = fieldToFlags(field, typeNode, context)
     return {
-      ...declared,
+      ...withLeaf(declared, leaf),
       optional: declared.optional ?? flags.optional,
       nullable: declared.nullable ?? flags.nullable,
     }
   }
   if (typeNode !== undefined) {
-    const translated = typeNodeToTranslatedType(typeNode, context)
+    const translated = typeNodeToFieldType(typeNode, leaf, context)
     if (isDiagnostic(translated)) {
       return translated
     }
@@ -645,9 +661,43 @@ function fieldToSchemaNode(
       optional: translated.optional || field.questionToken !== undefined,
     }
   }
+  if (leaf !== undefined) {
+    return { ...leaf, optional: field.questionToken !== undefined }
+  }
   return {
     message: `cannot read the type of "${field.name.getText()}": write its type or declare it with ${context.hints.declareFieldType}`,
   }
+}
+
+function typeNodeToFieldType(
+  typeNode: ts.TypeNode,
+  leaf: SchemaNode | undefined,
+  context: SchemaContext,
+): TranslatedType | Diagnostic {
+  if (leaf === undefined) {
+    return typeNodeToTranslatedType(typeNode, context)
+  }
+  return typeNodeToShapedLeaf(typeNode, leaf, context)
+}
+
+export function fieldOptionsToLeaf(
+  options: FieldOptions,
+): SchemaNode | undefined {
+  const { extension } = options
+  return extension?.vocabulary.toLeaf?.(extension.options)
+}
+
+export function withLeaf(
+  node: SchemaNode,
+  leaf: SchemaNode | undefined,
+): SchemaNode {
+  if (leaf === undefined) {
+    return node
+  }
+  if (node.type === 'array') {
+    return { ...node, items: withLeaf(node.items, leaf) }
+  }
+  return leaf
 }
 
 function declaredToFieldNode(

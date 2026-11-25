@@ -2,11 +2,29 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import type { SchemaNode } from '../../../../src/model/contract.ts'
 import {
+  fieldOptionsToLeaf,
   fieldOptionsToNode,
   nodeToArguments,
   nodeToArgumentsSchemas,
   nodeToScalar,
+  scalarToNode,
 } from '../../../../src/model/protocols/graphql/field-extra.ts'
+
+describe('fieldOptionsToLeaf', () => {
+  it('makes the scalar the leaf, without the arguments', () => {
+    const leaf = fieldOptionsToLeaf({
+      scalar: 'DateTime',
+      arguments: 'ReviewsArgs',
+    })
+    assert.ok(leaf)
+    assert.equal(nodeToScalar(leaf), 'DateTime')
+    assert.equal(nodeToArguments(leaf), undefined)
+  })
+
+  it('leaves the leaf to the type without a scalar', () => {
+    assert.equal(fieldOptionsToLeaf({ arguments: 'ReviewsArgs' }), undefined)
+  })
+})
 
 describe('fieldOptionsToNode', () => {
   it('leaves a node without options as it is', () => {
@@ -14,27 +32,18 @@ describe('fieldOptionsToNode', () => {
     assert.deepEqual(fieldOptionsToNode({}, node), node)
   })
 
-  it('turns the node into the scalar and keeps its flags', () => {
-    const node = fieldOptionsToNode(
-      { scalar: 'DateTime' },
-      { type: 'string', optional: true, nullable: true, description: 'Born' },
-    )
-    assert.equal(nodeToScalar(node), 'DateTime')
-    assert.deepEqual(
-      [node.optional, node.nullable, node.description],
-      [true, true, 'Born'],
-    )
+  it('leaves the scalar to the leaf', () => {
+    const node: SchemaNode = { type: 'string', optional: true }
+    assert.deepEqual(fieldOptionsToNode({ scalar: 'DateTime' }, node), node)
   })
 
-  it('turns the items of a list into the scalar', () => {
+  it('keeps the scalar of the leaf when it adds the arguments', () => {
     const node = fieldOptionsToNode(
-      { scalar: 'DateTime' },
-      { type: 'array', items: { type: 'string', nullable: true } },
+      { arguments: 'ReviewsArgs' },
+      scalarToNode('DateTime'),
     )
-    assert.equal(node.type, 'array')
-    assert.equal(nodeToScalar(node), undefined)
-    assert.equal(nodeToScalar(node.items), 'DateTime')
-    assert.equal(node.items.nullable, true)
+    assert.equal(nodeToScalar(node), 'DateTime')
+    assert.equal(nodeToArguments(node), 'ReviewsArgs')
   })
 
   it('adds the arguments to the node itself and references them', () => {

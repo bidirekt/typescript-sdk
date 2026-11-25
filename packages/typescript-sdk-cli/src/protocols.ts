@@ -10,6 +10,7 @@ import { sideBlocksToMerged as graphqlSideBlocksToMerged } from './model/protoco
 import type { GraphqlBlock } from './model/protocols/graphql/contract.ts'
 import {
   fieldOptions,
+  fieldOptionsToLeaf,
   fieldOptionsToNode,
   nodeToArgumentsSchemas,
 } from './model/protocols/graphql/field-extra.ts'
@@ -65,6 +66,7 @@ export type OptionValue = string
 export interface SchemaVocabulary {
   fieldDecorator: string
   fieldOptions: ReadonlyArray<string>
+  toLeaf?: (options: Record<string, OptionValue>) => SchemaNode | undefined
   toNode: (options: Record<string, OptionValue>, node: SchemaNode) => SchemaNode
   toYaml: (node: SchemaNode, map: YAMLMap) => void
   references: (node: SchemaNode) => Array<string>
@@ -106,6 +108,7 @@ const graphqlProtocol: ProtocolModule<GraphqlBlock> = {
   vocabulary: {
     fieldDecorator: 'BidirektGraphqlField',
     fieldOptions,
+    toLeaf: fieldOptionsToLeaf,
     toNode: fieldOptionsToNode,
     toYaml: fieldExtraToYaml,
     references: nodeToArgumentsSchemas,

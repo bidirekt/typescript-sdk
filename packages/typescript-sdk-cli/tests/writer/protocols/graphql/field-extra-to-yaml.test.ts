@@ -1,17 +1,17 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import { Document, Pair, YAMLMap } from 'yaml'
-import { fieldOptionsToNode } from '../../../../src/model/protocols/graphql/field-extra.ts'
+import {
+  fieldOptionsToNode,
+  scalarToNode,
+} from '../../../../src/model/protocols/graphql/field-extra.ts'
 import { fieldExtraToYaml } from '../../../../src/writer/protocols/graphql/field-extra-to-yaml.ts'
 
 describe('fieldExtraToYaml', () => {
   it('writes a scalar in place of the type, with its name', () => {
     const map = new YAMLMap()
     map.add(new Pair('type', 'string'))
-    fieldExtraToYaml(
-      fieldOptionsToNode({ scalar: 'DateTime' }, { type: 'string' }),
-      map,
-    )
+    fieldExtraToYaml(scalarToNode('DateTime'), map)
     assert.equal(new Document(map).toString(), 'type: scalar\nname: DateTime\n')
   })
 

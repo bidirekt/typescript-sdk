@@ -1,0 +1,4 @@
+pet.ts:9 @BidirektGraphqlField and @BidirektField are both on this property: keep one
+pet.ts:10 @BidirektGraphqlField and @BidirektField are both on this property: keep one
+pet.ts:13 @BidirektField and @BidirektGraphqlField are both on this property: keep one
+pet.ts:14 @BidirektField and @BidirektGraphqlField are both on this property: keep one

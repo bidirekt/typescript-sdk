@@ -575,6 +575,23 @@ A handler declares one resource: its method, in uppercase (`GET`, `POST`, `PUT`,
 
 Without a request (no `request` option, no `@bidirekt request` tag), the resource has no `request` key. A list is written once however many handlers use it. The same method and path provided by two handlers stops `generate`. The same resource consumed by several handlers, with decorators, tags or both, is written once with the statuses of all of them; they declare the same request, and the same schema for a status they share.
 
+### GraphQL returns
+
+`@BidirektGraphqlConsumer({ provider, query, arguments, returns })` on a method declares a GraphQL query the service calls, and `mutation` in place of `query` a mutation; with tags, `@bidirekt graphql consumes <provider> query|mutation <name>` above a handler, with `@bidirekt arguments <schema>` and `@bidirekt returns <type>`. `arguments` is a schema, and `returns` the shape the call reads:
+
+| Returns                 | Decorator                                         | Tag                              | Contract        |
+| ----------------------- | ------------------------------------------------- | -------------------------------- | --------------- |
+| a schema                | `Pet`                                             | `Pet`                            | `Pet`           |
+| a schema or null        | `{ nullable: Pet }`                               | `Pet?`                           | `PetOrNull`     |
+| a list                  | `[Pet]` or `{ list: Pet }`                        | `Pet[]`                          | `PetList`       |
+| a list or null          | `{ list: Pet, nullable: true }`                   | `Pet[]?`                         | `PetListOrNull` |
+| a list of items or null | `{ list: Pet, nullableItems: true }`              | `Pet?[]`                         | `PetOrNullList` |
+| a primitive             | `'boolean'`                                       | `boolean`                        | `Boolean`       |
+| a custom scalar         | `{ scalar: 'DateTime' }`                          | `scalar:DateTime`                | `DateTime`      |
+| an enum                 | `{ enum: ['AVAILABLE', 'SOLD'], name: 'Status' }` | `enum:AVAILABLE\|SOLD as Status` | `Status`        |
+
+A primitive, a scalar or an enum also takes the place of the schema in a nullable or a list (`{ nullable: 'integer' }`, `'string[]'`, `scalar:DateTime?[]`). Each form but a schema returned as it is becomes a schema of the contract, with the name above, and `name` in the decorator or `as <name>` in the tag gives it another one (`{ nullable: Pet, name: 'MaybePet' }`, `Pet? as MaybePet`). They name only a schema `generate` creates: a schema returned as it is is not copied, the call references it by its own name, so `@bidirekt returns Pet as MyPet` stops `generate`. To call it `MyPet`, name the schema itself, with `@BidirektSchema({ name })` or `@bidirekt schema name=<Name>`. A primitive returned as it is takes another name only in the tag (`boolean as Flag`): in the decorator it is a bare string, `'boolean'`, always written as `Boolean`.
+
 ### Fields
 
 | Decorator                                       | Tag                                          | What it declares                                                                                                                |
