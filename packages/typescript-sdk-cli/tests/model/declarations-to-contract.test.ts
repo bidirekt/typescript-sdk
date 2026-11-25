@@ -125,6 +125,55 @@ describe('declarationsToContract', () => {
     )
   })
 
+  it('writes an identical derived schema of any type used in several places once', () => {
+    const petOrNull = (file: string): NamedSchema => ({
+      name: 'PetOrNull',
+      location: { file, line: 3 },
+      node: { type: 'ref', schema: 'Pet', nullable: true },
+      derived: true,
+    })
+    const { contract, errors } = declarationsToContract(
+      declarations([pet(1), petOrNull('src/a.ts'), petOrNull('src/b.ts')]),
+      [calls],
+    )
+    assert.deepEqual(errors, [])
+    assert.deepEqual(
+      contract.schemas.map((schema) => schema.name),
+      ['Pet', 'PetOrNull'],
+    )
+  })
+
+  it('rejects a derived schema that is not a list and equals a declared schema of its name', () => {
+    const node = (): SchemaNode => ({
+      type: 'ref',
+      schema: 'Pet',
+      nullable: true,
+    })
+    const { errors } = declarationsToContract(
+      declarations([
+        pet(1),
+        {
+          name: 'PetOrNull',
+          location: { file: 'src/a.ts', line: 3 },
+          node: node(),
+        },
+        {
+          name: 'PetOrNull',
+          location: { file: 'src/b.ts', line: 3 },
+          node: node(),
+          derived: true,
+        },
+      ]),
+      [calls],
+    )
+    const message =
+      'schema name "PetOrNull" is declared more than once: give each schema a distinct name'
+    assert.deepEqual(errors, [
+      { message, location: { file: 'src/a.ts', line: 3 } },
+      { message, location: { file: 'src/b.ts', line: 3 } },
+    ])
+  })
+
   it('rejects two schemas with the same name at both places', () => {
     const { errors } = declarationsToContract(declarations([pet(1), pet(8)]), [
       calls,

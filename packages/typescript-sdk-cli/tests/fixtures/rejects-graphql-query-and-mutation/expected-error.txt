@@ -1,0 +1,1 @@
+clients.ts:14 @BidirektGraphqlConsumer options declare both "query" and "mutation": write one

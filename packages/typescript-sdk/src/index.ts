@@ -50,3 +50,4 @@ export function BidirektField(
 }
 
 export * from './protocols/rest.ts'
+export * from './protocols/graphql.ts'

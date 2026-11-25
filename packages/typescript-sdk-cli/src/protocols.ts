@@ -5,14 +5,26 @@ import type {
   SourceLocation,
 } from './model/contract.ts'
 import type { Diagnostic } from './model/diagnostic.ts'
+import { blockToReferences } from './model/protocols/graphql/block-to-references.ts'
+import { sideBlocksToMerged as graphqlSideBlocksToMerged } from './model/protocols/graphql/blocks-to-merged.ts'
+import type { GraphqlBlock } from './model/protocols/graphql/contract.ts'
+import {
+  fieldOptions,
+  fieldOptionsToNode,
+  nodeToArgumentsSchemas,
+} from './model/protocols/graphql/field-extra.ts'
 import type { Resource } from './model/protocols/rest/contract.ts'
 import { resourcesToReferences } from './model/protocols/rest/resources-to-references.ts'
 import { sideBlocksToMerged } from './model/protocols/rest/resources-to-merged.ts'
 import type { TaggedComment } from './reader/comment-tags.ts'
+import { graphqlDecoratorTargets } from './reader/protocols/graphql/decorators-to-blocks.ts'
+import { protocolInputToBlocks } from './reader/protocols/graphql/protocol-input-to-blocks.ts'
 import { restDecoratorTargets } from './reader/protocols/rest/handler-methods.ts'
 import { protocolInputToResources } from './reader/protocols/rest/protocol-input-to-resources.ts'
 import type { SchemaContext } from './reader/schema-context.ts'
 import type { DecoratorTarget, SdkDecorator } from './reader/sdk-references.ts'
+import { blockToYaml } from './writer/protocols/graphql/block-to-yaml.ts'
+import { fieldExtraToYaml } from './writer/protocols/graphql/field-extra-to-yaml.ts'
 import { resourcesToYaml } from './writer/protocols/rest/resources-to-yaml.ts'
 
 export type Contract = {
@@ -81,4 +93,26 @@ const restProtocol: ProtocolModule<Array<Resource>> = {
   toYaml: resourcesToYaml,
 }
 
-export const defaultProtocols: ReadonlyArray<ProtocolModule> = [restProtocol]
+const graphqlProtocol: ProtocolModule<GraphqlBlock> = {
+  name: 'graphql',
+  exports: graphqlDecoratorTargets,
+  tagKeywords: ['arguments', 'returns', 'graph'],
+  read: protocolInputToBlocks,
+  merge: graphqlSideBlocksToMerged,
+  references: blockToReferences,
+  isEmpty: (block) =>
+    block.operations.length === 0 && block.graph === undefined,
+  toYaml: blockToYaml,
+  vocabulary: {
+    fieldDecorator: 'BidirektGraphqlField',
+    fieldOptions,
+    toNode: fieldOptionsToNode,
+    toYaml: fieldExtraToYaml,
+    references: nodeToArgumentsSchemas,
+  },
+}
+
+export const defaultProtocols: ReadonlyArray<ProtocolModule> = [
+  restProtocol,
+  graphqlProtocol,
+]

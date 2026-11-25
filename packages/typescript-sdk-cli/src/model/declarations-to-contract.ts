@@ -92,9 +92,7 @@ function declarationsToSchemas(declarations: Array<NamedSchema>): {
     (declaration) => declaration.name,
   )) {
     const [first] = group
-    if (
-      group.every((declaration) => isSameList(declaration.node, first.node))
-    ) {
+    if (group.every((declaration) => isSameSchema(declaration, first))) {
       schemas.push(first)
       continue
     }
@@ -119,11 +117,15 @@ function schemaToDuplicateFields(schema: NamedSchema): Array<Diagnostic> {
     }))
 }
 
-function isSameList(node: SchemaNode, first: SchemaNode): boolean {
-  if (node === first) {
+function isSameSchema(schema: NamedSchema, first: NamedSchema): boolean {
+  if (schema.node === first.node) {
     return true
   }
-  return node.type === 'array' && isDeepStrictEqual(node, first)
+  const derived = schema.derived === true && first.derived === true
+  return (
+    (schema.node.type === 'array' || derived) &&
+    isDeepStrictEqual(schema.node, first.node)
+  )
 }
 
 function collisionToMessage(name: string, group: Array<NamedSchema>): string {

@@ -27,6 +27,9 @@ const typesRoot = dirname(
 
 const sampleSource = `import {
   BidirektField,
+  BidirektGraph,
+  BidirektGraphqlConsumer,
+  BidirektGraphqlField,
   BidirektRestConsumer,
   BidirektRestProvider,
   BidirektSchema,
@@ -60,6 +63,9 @@ class Pet {
 
   @BidirektField({ type: 'map<integer[]>' })
   scores: Record<string, number[]> = {}
+
+  @BidirektGraphqlField({ scalar: 'DateTime', arguments: PixPayment })
+  bornAt!: string
 
   internalNotes = ''
 }
@@ -96,7 +102,22 @@ class PetsController {
   }
 }
 
+@BidirektGraph('petstore_graph')
+class PetstoreClient {
+  @BidirektGraphqlConsumer({ provider: 'petstore_api', query: 'pet', arguments: PixPayment, returns: { nullable: Pet } })
+  @BidirektGraphqlConsumer({ provider: 'petstore_api', query: 'petCount', returns: 'integer' })
+  pet(): string {
+    return 'queried'
+  }
+
+  @BidirektGraphqlConsumer({ provider: 'petstore_api', mutation: 'adoptPet', returns: [Pet] })
+  adopt(): string {
+    return 'adopted'
+  }
+}
+
 const controller = new PetsController()
+const client = new PetstoreClient()
 const pet = new Pet()
 console.log(
   JSON.stringify({
@@ -105,6 +126,8 @@ console.log(
       controller.list(),
       controller.featured(),
       controller.charge(),
+      client.pet(),
+      client.adopt(),
     ],
     pet: Object.keys(pet),
   }),
@@ -112,8 +135,16 @@ console.log(
 `
 
 const expectedOutput = `${JSON.stringify({
-  handlers: ['found', 'listed', 'featured', 'charged'],
-  pet: ['id', 'birthDate', 'nickname', 'payment', 'scores', 'internalNotes'],
+  handlers: ['found', 'listed', 'featured', 'charged', 'queried', 'adopted'],
+  pet: [
+    'id',
+    'birthDate',
+    'nickname',
+    'payment',
+    'scores',
+    'bornAt',
+    'internalNotes',
+  ],
 })}\n`
 
 const decoratorModes = [
@@ -233,7 +264,7 @@ describe('decorators at runtime', () => {
 })
 
 describe('public API', () => {
-  test('exports only the four decorators and their option types', () => {
+  test('exports only the decorators and their option types', () => {
     const entry = join(runtimePackageRoot, 'src', 'index.ts')
     const program = ts.createProgram([entry], {
       allowImportingTsExtensions: true,
@@ -255,6 +286,11 @@ describe('public API', () => {
       'BidirektField',
       'BidirektFieldOptions',
       'BidirektFieldType',
+      'BidirektGraph',
+      'BidirektGraphqlConsumer',
+      'BidirektGraphqlConsumerOptions',
+      'BidirektGraphqlField',
+      'BidirektGraphqlFieldOptions',
       'BidirektRestConsumer',
       'BidirektRestConsumerOptions',
       'BidirektRestHttpMethod',
@@ -263,6 +299,107 @@ describe('public API', () => {
       'BidirektSchema',
       'BidirektSchemaOptions',
     ])
+  })
+})
+
+describe('GraphQL consumer options', () => {
+  const entry = join(runtimePackageRoot, 'src', 'index.ts')
+  const cases: Record<string, Array<string>> = {
+    'every-returns-form': [
+      "@BidirektGraphqlConsumer({ provider: 'petstore_api', query: 'pet', arguments: Pet, returns: Pet })",
+      "@BidirektGraphqlConsumer({ provider: 'petstore_api', query: 'pets', returns: [Pet] })",
+      "@BidirektGraphqlConsumer({ provider: 'petstore_api', query: 'maybePet', returns: { nullable: Pet, name: 'MaybePet' } })",
+      "@BidirektGraphqlConsumer({ provider: 'petstore_api', query: 'pages', returns: { list: Pet, nullable: true, nullableItems: true, name: 'Pages' } })",
+      "@BidirektGraphqlConsumer({ provider: 'petstore_api', query: 'petCount', returns: 'integer' })",
+      "@BidirektGraphqlConsumer({ provider: 'petstore_api', query: 'tags', returns: 'string[]' })",
+      "@BidirektGraphqlConsumer({ provider: 'petstore_api', query: 'now', returns: { scalar: 'DateTime' } })",
+      "@BidirektGraphqlConsumer({ provider: 'petstore_api', query: 'dates', returns: { list: { scalar: 'DateTime' }, nullableItems: true } })",
+      "@BidirektGraphqlConsumer({ provider: 'petstore_api', query: 'status', returns: { enum: ['AVAILABLE', 'SOLD'], name: 'Status' } })",
+      "@BidirektGraphqlConsumer({ provider: 'petstore_api', mutation: 'deletePet', returns: { nullable: 'boolean' } })",
+    ],
+    'query-and-mutation': [
+      "@BidirektGraphqlConsumer({ provider: 'petstore_api', query: 'pet', mutation: 'adoptPet', returns: Pet })",
+    ],
+    'rest-option': [
+      "@BidirektGraphqlConsumer({ provider: 'petstore_api', query: 'pet', method: 'GET', returns: Pet })",
+    ],
+    'enum-without-name': [
+      "@BidirektGraphqlConsumer({ provider: 'petstore_api', query: 'status', returns: { enum: ['AVAILABLE'] } })",
+    ],
+  }
+  let optionsRoot = ''
+  let errors = new Map<string, Array<string>>()
+
+  before(async () => {
+    optionsRoot = await mkdtemp(join(tmpdir(), 'bidirekt-sdk-options-'))
+    const files: Array<string> = []
+    for (const [name, decorators] of Object.entries(cases)) {
+      const file = join(optionsRoot, `${name}.ts`)
+      files.push(file)
+      await writeFile(
+        file,
+        [
+          `import { BidirektGraphqlConsumer, BidirektSchema } from ${JSON.stringify(entry)}`,
+          '',
+          '@BidirektSchema()',
+          'export class Pet {}',
+          '',
+          'export class PetstoreClient {',
+          ...decorators.map((decorator) => `  ${decorator}`),
+          '  call(): void {}',
+          '}',
+          '',
+        ].join('\n'),
+      )
+    }
+    const program = ts.createProgram(files, {
+      strict: true,
+      noEmit: true,
+      allowImportingTsExtensions: true,
+      target: ts.ScriptTarget.ES2024,
+      module: ts.ModuleKind.NodeNext,
+      moduleResolution: ts.ModuleResolutionKind.NodeNext,
+      types: [],
+    })
+    errors = new Map(
+      files.map((file) => [
+        file.slice(optionsRoot.length + 1, -'.ts'.length),
+        ts
+          .getPreEmitDiagnostics(program, program.getSourceFile(file))
+          .map((diagnostic) =>
+            ts.flattenDiagnosticMessageText(diagnostic.messageText, ' '),
+          ),
+      ]),
+    )
+  })
+
+  after(async () => {
+    await rm(optionsRoot, { recursive: true, force: true })
+  })
+
+  test('compiles on a method with every returns form', () => {
+    assert.deepEqual(errors.get('every-returns-form'), [])
+  })
+
+  test('does not compile with both query and mutation', () => {
+    assert.match(
+      errors.get('query-and-mutation')?.join('\n') ?? '',
+      /'string' is not assignable to type 'undefined'/,
+    )
+  })
+
+  test('does not compile with a REST option', () => {
+    assert.match(
+      errors.get('rest-option')?.join('\n') ?? '',
+      /'method' does not exist/,
+    )
+  })
+
+  test('does not compile with an enum without a name', () => {
+    assert.match(
+      errors.get('enum-without-name')?.join('\n') ?? '',
+      /'{ enum: string\[\]; }' is not assignable to type 'BidirektGraphqlReturns'/,
+    )
   })
 })
 

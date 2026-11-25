@@ -39,4 +39,5 @@ export type NamedSchema = {
   name: string
   node: SchemaNode
   location: SourceLocation
+  derived?: true
 }

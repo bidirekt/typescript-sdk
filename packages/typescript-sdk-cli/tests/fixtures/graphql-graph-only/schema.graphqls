@@ -1,0 +1,30 @@
+extend schema @link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@key"])
+
+scalar DateTime
+
+enum Status {
+  AVAILABLE
+  SOLD
+}
+
+type Query {
+  pet(id: ID!): Pet
+  pets: [Pet!]!
+  petCount: Int!
+}
+
+type Mutation {
+  adoptPet(petId: ID!): Pet!
+}
+
+type Pet @key(fields: "id") {
+  id: ID!
+  name: String
+  status: Status!
+  bornAt: DateTime!
+  reviews(first: Int): [Review!]!
+}
+
+type Review {
+  stars: Int!
+}

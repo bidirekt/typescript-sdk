@@ -1,0 +1,1 @@
+clients.ts:17 unknown option "retruns" in @BidirektGraphqlConsumer options: write provider, query, mutation, arguments or returns

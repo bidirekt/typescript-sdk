@@ -1,0 +1,2 @@
+resolvers.ts:3 the graph is declared as "petstore_graph" and "other_graph": declare one graph name in every @BidirektGraph
+reviews.ts:1 the graph is declared as "petstore_graph" and "other_graph": declare one graph name in every @BidirektGraph

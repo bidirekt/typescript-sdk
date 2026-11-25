@@ -326,6 +326,9 @@ describe('npm pack', () => {
 
       const decorators = [
         'BidirektField',
+        'BidirektGraph',
+        'BidirektGraphqlConsumer',
+        'BidirektGraphqlField',
         'BidirektRestConsumer',
         'BidirektRestProvider',
         'BidirektSchema',
