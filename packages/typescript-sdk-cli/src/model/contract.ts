@@ -1,3 +1,5 @@
+import type { SchemaVocabulary } from '../protocols.ts'
+
 export type SourceLocation = {
   file: string
   line: number
@@ -16,6 +18,7 @@ export type Property = {
   name: string
   node: SchemaNode
   location: SourceLocation
+  vocabulary?: SchemaVocabulary
 }
 
 export type UnionMember = {
@@ -40,4 +43,5 @@ export type NamedSchema = {
   node: SchemaNode
   location: SourceLocation
   derived?: true
+  vocabulary?: SchemaVocabulary
 }

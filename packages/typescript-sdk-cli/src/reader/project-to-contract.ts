@@ -1,6 +1,11 @@
+import type { NamedSchema } from '../model/contract.ts'
 import { declarationsToContract } from '../model/declarations-to-contract.ts'
 import type { Diagnostic } from '../model/diagnostic.ts'
-import type { Contract, ProtocolModule } from '../protocols.ts'
+import type {
+  Contract,
+  ProtocolModule,
+  SchemaVocabulary,
+} from '../protocols.ts'
 import { programToTaggedComments } from './comment-tags.ts'
 import { programToSyntaxErrors, projectToProgram } from './program.ts'
 import type { Project } from './program.ts'
@@ -63,6 +68,7 @@ export function projectToContract(
   )
   const reads = protocols.map((protocol) => ({
     name: protocol.name,
+    vocabulary: protocol.vocabulary,
     read: protocol.read({
       decorators: decorators.filter(
         (decorator) => decorator.protocol === protocol.name,
@@ -76,7 +82,9 @@ export function projectToContract(
       blocks: new Map(reads.map(({ name, read }) => [name, read.blocks])),
       schemas: [
         ...schemas.schemas,
-        ...reads.flatMap(({ read }) => read.derived),
+        ...reads.flatMap(({ vocabulary, read }) =>
+          read.derived.map((schema) => withVocabulary(schema, vocabulary)),
+        ),
         ...handlers.schemas,
       ],
     },
@@ -102,6 +110,16 @@ export function projectToContract(
       ...schemaTags.warnings,
     ],
   }
+}
+
+function withVocabulary(
+  schema: NamedSchema,
+  vocabulary: SchemaVocabulary | undefined,
+): NamedSchema {
+  if (vocabulary === undefined) {
+    return schema
+  }
+  return { ...schema, vocabulary }
 }
 
 function isProtocolDecorator(

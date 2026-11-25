@@ -349,6 +349,7 @@ describe('declarationsToContract', () => {
             name: 'replies',
             location: { file: 'src/ticket.ts', line: 2 },
             node: { type: 'string', extra: { arguments: 'ReplyArgs' } },
+            vocabulary: calls.vocabulary,
           },
         ],
       },

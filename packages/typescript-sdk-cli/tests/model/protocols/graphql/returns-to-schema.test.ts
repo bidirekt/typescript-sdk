@@ -10,7 +10,7 @@ const pet: ReturnedType = { kind: 'schema', schema: 'Pet' }
 
 const scalarNode = {
   type: 'string',
-  extra: { graphql: { scalar: 'DateTime' } },
+  extra: { scalar: 'DateTime' },
 }
 
 describe('returnsToSchema', () => {

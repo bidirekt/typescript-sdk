@@ -10,7 +10,7 @@ import type { ProtocolModule } from '../protocols.ts'
 import { isHandlerTag, tagToText } from './comment-tags.ts'
 import type { CommentTag, TaggedComment } from './comment-tags.ts'
 import { namesToChoice } from './literal-options.ts'
-import { fieldOptionsToNode } from './schema-classes.ts'
+import { fieldOptionsToProperty } from './schema-classes.ts'
 import type { SdkDecorator } from './sdk-references.ts'
 import {
   argumentsToOptions,
@@ -204,9 +204,5 @@ function tagToBlockProperty(
       location: tag.location,
     }
   }
-  return {
-    name,
-    node: fieldOptionsToNode(options.declared, options),
-    location: tag.location,
-  }
+  return fieldOptionsToProperty(name, options.declared, options, tag.location)
 }

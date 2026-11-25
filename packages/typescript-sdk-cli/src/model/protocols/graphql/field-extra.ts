@@ -6,8 +6,6 @@ type GraphqlExtra = {
   arguments?: string
 }
 
-const extraKey = 'graphql'
-
 export const fieldOptions = ['scalar', 'arguments']
 
 export function scalarToNode(scalar: string): SchemaNode {
@@ -15,11 +13,11 @@ export function scalarToNode(scalar: string): SchemaNode {
 }
 
 export function nodeToScalar(node: SchemaNode): string | undefined {
-  return nodeToExtra(node).scalar
+  return nodeToExtraText(node, 'scalar')
 }
 
 export function nodeToArguments(node: SchemaNode): string | undefined {
-  return nodeToExtra(node).arguments
+  return nodeToExtraText(node, 'arguments')
 }
 
 export function fieldOptionsToNode(
@@ -61,20 +59,17 @@ function nodeToScalarNode(node: SchemaNode, scalar: string): SchemaNode {
   return scalarNode
 }
 
-function nodeToExtra(node: SchemaNode): GraphqlExtra {
-  const extra = node.extra?.[extraKey]
-  if (typeof extra !== 'object' || extra === null) {
-    return {}
+function nodeToExtraText(
+  node: SchemaNode,
+  key: keyof GraphqlExtra,
+): string | undefined {
+  const text = node.extra?.[key]
+  if (typeof text !== 'string') {
+    return undefined
   }
-  return extra
+  return text
 }
 
 function withExtra(node: SchemaNode, extra: GraphqlExtra): SchemaNode {
-  return {
-    ...node,
-    extra: {
-      ...node.extra,
-      [extraKey]: { ...nodeToExtra(node), ...extra },
-    },
-  }
+  return { ...node, extra: { ...node.extra, ...extra } }
 }

@@ -560,13 +560,15 @@ function fieldToProperty(
   if (isDiagnostic(read)) {
     return withLocation(read, location)
   }
-  return { name, node: fieldOptionsToNode(read, options), location }
+  return fieldOptionsToProperty(name, read, options, location)
 }
 
-export function fieldOptionsToNode(
+export function fieldOptionsToProperty(
+  name: string,
   read: SchemaNode,
   options: FieldOptions,
-): SchemaNode {
+  location: SourceLocation,
+): Property {
   const node: SchemaNode = { ...read }
   delete node.optional
   delete node.nullable
@@ -579,10 +581,16 @@ export function fieldOptionsToNode(
   if (options.description !== undefined) {
     node.description = options.description
   }
-  if (options.extension === undefined) {
-    return node
+  const { extension } = options
+  if (extension === undefined) {
+    return { name, node, location }
   }
-  return options.extension.vocabulary.toNode(options.extension.options, node)
+  return {
+    name,
+    node: extension.vocabulary.toNode(extension.options, node),
+    location,
+    vocabulary: extension.vocabulary,
+  }
 }
 
 function annotationToContext(

@@ -20,8 +20,7 @@ export function contractToYaml(
     root.add(new Pair('consumes', consumedToYaml(contract.consumes, protocols)))
   }
   if (contract.schemas.length > 0) {
-    const vocabularies = protocols.flatMap(({ vocabulary }) => vocabulary ?? [])
-    root.add(new Pair('schemas', schemasToYaml(contract.schemas, vocabularies)))
+    root.add(new Pair('schemas', schemasToYaml(contract.schemas)))
   }
   const document = new Document(root)
   root.commentBefore = header
@@ -66,21 +65,18 @@ function blocksToYaml(
   return byProtocol
 }
 
-function schemasToYaml(
-  schemas: Array<NamedSchema>,
-  vocabularies: ReadonlyArray<SchemaVocabulary>,
-): YAMLMap {
+function schemasToYaml(schemas: Array<NamedSchema>): YAMLMap {
   const named = new YAMLMap()
   const sorted = [...schemas].sort((a, b) => compareBytes(a.name, b.name))
   for (const schema of sorted) {
-    named.add(new Pair(schema.name, nodeToYaml(schema.node, vocabularies)))
+    named.add(new Pair(schema.name, nodeToYaml(schema.node, schema.vocabulary)))
   }
   return named
 }
 
 function nodeToYaml(
   node: SchemaNode,
-  vocabularies: ReadonlyArray<SchemaVocabulary>,
+  vocabulary: SchemaVocabulary | undefined,
 ): YAMLMap {
   const fields = new YAMLMap()
   switch (node.type) {
@@ -92,7 +88,10 @@ function nodeToYaml(
       const properties = new YAMLMap()
       for (const property of node.properties) {
         properties.add(
-          new Pair(property.name, nodeToYaml(property.node, vocabularies)),
+          new Pair(
+            property.name,
+            nodeToYaml(property.node, property.vocabulary),
+          ),
         )
       }
       fields.add(new Pair('properties', properties))
@@ -100,11 +99,11 @@ function nodeToYaml(
     }
     case 'array':
       fields.add(new Pair('type', node.type))
-      fields.add(new Pair('items', nodeToYaml(node.items, vocabularies)))
+      fields.add(new Pair('items', nodeToYaml(node.items, vocabulary)))
       break
     case 'map':
       fields.add(new Pair('type', node.type))
-      fields.add(new Pair('values', nodeToYaml(node.values, vocabularies)))
+      fields.add(new Pair('values', nodeToYaml(node.values, vocabulary)))
       break
     case 'enum':
       fields.add(new Pair('type', node.type))
@@ -114,7 +113,7 @@ function nodeToYaml(
       fields.add(new Pair('type', node.type))
       const members = new YAMLMap()
       for (const member of node.members) {
-        members.add(new Pair(member.key, nodeToYaml(member.node, vocabularies)))
+        members.add(new Pair(member.key, nodeToYaml(member.node, vocabulary)))
       }
       fields.add(new Pair('members', members))
       break
@@ -123,9 +122,7 @@ function nodeToYaml(
       fields.add(new Pair('type', node.type))
   }
   if (node.extra !== undefined) {
-    for (const vocabulary of vocabularies) {
-      vocabulary.toYaml(node, fields)
-    }
+    vocabulary?.toYaml(node, fields)
   }
   if (node.optional) {
     fields.add(new Pair('optional', true))

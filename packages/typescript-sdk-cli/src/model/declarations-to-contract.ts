@@ -144,13 +144,12 @@ function contractToMissingReferences(
   protocols: ReadonlyArray<ProtocolModule>,
   declared: ReadonlySet<string>,
 ): Array<Diagnostic> {
-  const vocabularies = protocols.flatMap(({ vocabulary }) => vocabulary ?? [])
   const references: Array<Reference> = [
     ...contractToProtocolBlocks(contract, protocols).flatMap(
       ({ protocol, block }) => protocol.references(block),
     ),
     ...contract.schemas.flatMap((schema) =>
-      nodeToReferences(schema.node, schema.location, vocabularies),
+      nodeToReferences(schema.node, schema.location, schema.vocabulary),
     ),
   ]
   return references
@@ -164,46 +163,44 @@ function contractToMissingReferences(
 function nodeToReferences(
   node: SchemaNode,
   location: SourceLocation,
-  vocabularies: ReadonlyArray<SchemaVocabulary>,
+  vocabulary: SchemaVocabulary | undefined,
 ): Array<Reference> {
   return [
-    ...extraToReferences(node, location, vocabularies),
-    ...typeToReferences(node, location, vocabularies),
+    ...extraToReferences(node, location, vocabulary),
+    ...typeToReferences(node, location, vocabulary),
   ]
 }
 
 function extraToReferences(
   node: SchemaNode,
   location: SourceLocation,
-  vocabularies: ReadonlyArray<SchemaVocabulary>,
+  vocabulary: SchemaVocabulary | undefined,
 ): Array<Reference> {
-  if (node.extra === undefined) {
+  if (node.extra === undefined || vocabulary === undefined) {
     return []
   }
-  return vocabularies
-    .flatMap((vocabulary) => vocabulary.references(node))
-    .map((schema) => ({ schema, location }))
+  return vocabulary.references(node).map((schema) => ({ schema, location }))
 }
 
 function typeToReferences(
   node: SchemaNode,
   location: SourceLocation,
-  vocabularies: ReadonlyArray<SchemaVocabulary>,
+  vocabulary: SchemaVocabulary | undefined,
 ): Array<Reference> {
   switch (node.type) {
     case 'ref':
       return [{ schema: node.schema, location }]
     case 'object':
       return node.properties.flatMap((property) =>
-        nodeToReferences(property.node, property.location, vocabularies),
+        nodeToReferences(property.node, property.location, property.vocabulary),
       )
     case 'array':
-      return nodeToReferences(node.items, location, vocabularies)
+      return nodeToReferences(node.items, location, vocabulary)
     case 'map':
-      return nodeToReferences(node.values, location, vocabularies)
+      return nodeToReferences(node.values, location, vocabulary)
     case 'union':
       return node.members.flatMap((member) =>
-        nodeToReferences(member.node, location, vocabularies),
+        nodeToReferences(member.node, location, vocabulary),
       )
   }
   return []
