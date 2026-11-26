@@ -4,7 +4,7 @@ import { scalarToNode } from './field-extra.ts'
 
 export type ReturnsSchema = {
   schema: string
-  derived?: NamedSchema
+  derived: Array<NamedSchema>
 }
 
 export function returnsToSchema(
@@ -12,8 +12,9 @@ export function returnsToSchema(
   location: SourceLocation,
 ): ReturnsSchema {
   const { type } = returns
+  const declared = typeToDeclaredSchemas(type, location)
   if (returns.form === 'type' && type.kind === 'schema') {
-    return { schema: type.schema }
+    return { schema: type.schema, derived: declared }
   }
   const derived: NamedSchema = {
     name: returns.name ?? returnsToDefaultName(returns),
@@ -21,7 +22,17 @@ export function returnsToSchema(
     location,
     derived: true,
   }
-  return { schema: derived.name, derived }
+  return { schema: derived.name, derived: [...declared, derived] }
+}
+
+function typeToDeclaredSchemas(
+  type: ReturnedType,
+  location: SourceLocation,
+): Array<NamedSchema> {
+  if (type.kind !== 'schema' || type.declared === undefined) {
+    return []
+  }
+  return [{ name: type.schema, node: type.declared, location, derived: true }]
 }
 
 function returnsToDefaultName(returns: Returns): string {

@@ -25,18 +25,21 @@ describe('returnsToSchema', () => {
   it('returns a schema by its own name, without a derived schema', () => {
     assert.deepEqual(returnsToSchema({ form: 'type', type: pet }, at), {
       schema: 'Pet',
+      derived: [],
     })
   })
 
   it('derives a nullable schema named after the type', () => {
     assert.deepEqual(returnsToSchema({ form: 'nullable', type: pet }, at), {
       schema: 'PetOrNull',
-      derived: {
-        name: 'PetOrNull',
-        node: { type: 'ref', schema: 'Pet', nullable: true },
-        location: at,
-        derived: true,
-      },
+      derived: [
+        {
+          name: 'PetOrNull',
+          node: { type: 'ref', schema: 'Pet', nullable: true },
+          location: at,
+          derived: true,
+        },
+      ],
     })
   })
 
@@ -85,7 +88,7 @@ describe('returnsToSchema', () => {
         ),
         {
           schema: name,
-          derived: { name, node, location: at, derived: true },
+          derived: [{ name, node, location: at, derived: true }],
         },
       )
     })
@@ -125,50 +128,160 @@ describe('returnsToSchema', () => {
       [
         {
           schema: 'Boolean',
-          derived: {
-            name: 'Boolean',
-            node: { type: 'boolean' },
-            location: at,
-            derived: true,
-          },
+          derived: [
+            {
+              name: 'Boolean',
+              node: { type: 'boolean' },
+              location: at,
+              derived: true,
+            },
+          ],
         },
         {
           schema: 'DateTime',
-          derived: {
-            name: 'DateTime',
-            node: scalarNode,
-            location: at,
-            derived: true,
-          },
+          derived: [
+            {
+              name: 'DateTime',
+              node: scalarNode,
+              location: at,
+              derived: true,
+            },
+          ],
         },
         {
           schema: 'Instant',
-          derived: {
-            name: 'Instant',
-            node: scalarNode,
-            location: at,
-            derived: true,
-          },
+          derived: [
+            {
+              name: 'Instant',
+              node: scalarNode,
+              location: at,
+              derived: true,
+            },
+          ],
         },
         {
           schema: 'Status',
-          derived: {
-            name: 'Status',
-            node: { type: 'enum', members: ['AVAILABLE', 'SOLD'] },
-            location: at,
-            derived: true,
-          },
+          derived: [
+            {
+              name: 'Status',
+              node: { type: 'enum', members: ['AVAILABLE', 'SOLD'] },
+              location: at,
+              derived: true,
+            },
+          ],
         },
         {
           schema: 'SearchResult',
-          derived: {
+          derived: [
+            {
+              name: 'SearchResult',
+              node: { type: 'union', members: searchMembers },
+              location: at,
+              derived: true,
+            },
+          ],
+        },
+      ],
+    )
+  })
+
+  it('writes a declared enum as its own schema and reads it by name when nullable or in a list', () => {
+    const status: ReturnedType = {
+      kind: 'schema',
+      schema: 'Status',
+      declared: { type: 'enum', members: ['AVAILABLE', 'SOLD'] },
+    }
+    const declared = {
+      name: 'Status',
+      node: { type: 'enum', members: ['AVAILABLE', 'SOLD'] },
+      location: at,
+      derived: true,
+    }
+    assert.deepEqual(
+      [
+        returnsToSchema({ form: 'type', type: status }, at),
+        returnsToSchema({ form: 'nullable', type: status }, at),
+        returnsToSchema(
+          {
+            form: 'list',
+            type: status,
+            nullable: true,
+            nullableItems: true,
+          },
+          at,
+        ),
+      ],
+      [
+        { schema: 'Status', derived: [declared] },
+        {
+          schema: 'StatusOrNull',
+          derived: [
+            declared,
+            {
+              name: 'StatusOrNull',
+              node: { type: 'ref', schema: 'Status', nullable: true },
+              location: at,
+              derived: true,
+            },
+          ],
+        },
+        {
+          schema: 'StatusOrNullListOrNull',
+          derived: [
+            declared,
+            {
+              name: 'StatusOrNullListOrNull',
+              node: {
+                type: 'array',
+                items: { type: 'ref', schema: 'Status', nullable: true },
+                nullable: true,
+              },
+              location: at,
+              derived: true,
+            },
+          ],
+        },
+      ],
+    )
+  })
+
+  it('writes a declared union as its own schema and reads it by name in a list with its own name', () => {
+    const searchResult: ReturnedType = {
+      kind: 'schema',
+      schema: 'SearchResult',
+      declared: { type: 'union', members: searchMembers },
+    }
+    assert.deepEqual(
+      returnsToSchema(
+        {
+          form: 'list',
+          type: searchResult,
+          nullable: false,
+          nullableItems: false,
+          name: 'Results',
+        },
+        at,
+      ),
+      {
+        schema: 'Results',
+        derived: [
+          {
             name: 'SearchResult',
             node: { type: 'union', members: searchMembers },
             location: at,
             derived: true,
           },
-        },
-      ],
+          {
+            name: 'Results',
+            node: {
+              type: 'array',
+              items: { type: 'ref', schema: 'SearchResult' },
+            },
+            location: at,
+            derived: true,
+          },
+        ],
+      },
     )
   })
 
@@ -197,7 +310,7 @@ describe('returnsToSchema', () => {
           },
           at,
         ),
-      ].map(({ derived }) => [derived?.name, derived?.node]),
+      ].flatMap(({ derived }) => derived.map(({ name, node }) => [name, node])),
       [
         ['StringList', { type: 'array', items: { type: 'string' } }],
         ['IntegerOrNull', { type: 'integer', nullable: true }],

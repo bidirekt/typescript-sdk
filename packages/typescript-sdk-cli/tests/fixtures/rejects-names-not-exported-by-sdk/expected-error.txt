@@ -1,5 +1,7 @@
 clinics.js:1 BidirektConsumer is not exported by @bidirekt/typescript-sdk, so it is not read
 contracts.ts:1 BidirektConsumer is not exported by @bidirekt/typescript-sdk, so it is not read
+labs.js:4 BidirektConsumer is not exported by @bidirekt/typescript-sdk, so it is not read
+owners.ts:2 BidirektProviderOptions is not exported by @bidirekt/typescript-sdk, so it is not read
 owners.ts:8 BidirektProvider is not exported by @bidirekt/typescript-sdk, so it is not read
 pets.ts:1 BidirektProvider is not exported by @bidirekt/typescript-sdk, so it is not read
 vets.ts:2 BidirektConsumer is not exported by @bidirekt/typescript-sdk, so it is not read

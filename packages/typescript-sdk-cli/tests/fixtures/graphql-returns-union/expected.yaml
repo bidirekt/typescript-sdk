@@ -34,37 +34,17 @@ schemas:
   SearchResultList:
     type: array
     items:
-      type: union
-      members:
-        Pet:
-          ref: Pet
-        Owner:
-          ref: Owner
+      ref: SearchResult
   SearchResultListOrNull:
     type: array
     items:
-      type: union
-      members:
-        Pet:
-          ref: Pet
-        Owner:
-          ref: Owner
+      ref: SearchResult
     nullable: true
   SearchResultOrNull:
-    type: union
-    members:
-      Pet:
-        ref: Pet
-      Owner:
-        ref: Owner
+    ref: SearchResult
     nullable: true
   SearchResultOrNullList:
     type: array
     items:
-      type: union
-      members:
-        Pet:
-          ref: Pet
-        Owner:
-          ref: Owner
+      ref: SearchResult
       nullable: true

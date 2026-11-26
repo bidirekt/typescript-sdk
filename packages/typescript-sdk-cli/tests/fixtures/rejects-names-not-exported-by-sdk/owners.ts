@@ -1,5 +1,5 @@
 import * as sdk from '@bidirekt/typescript-sdk'
-import type { BidirektSchemaOptions } from '@bidirekt/typescript-sdk'
+import type { BidirektProviderOptions, BidirektSchemaOptions } from '@bidirekt/typescript-sdk'
 import { Pet } from './pets.ts'
 
 export const ownerSchema: BidirektSchemaOptions = { name: 'Owner' }

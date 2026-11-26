@@ -1,3 +1,15 @@
+/** @bidirekt schema */
+export interface Pet {
+  /** @bidirekt field */
+  name: string
+}
+
+/** @bidirekt schema */
+export interface Owner {
+  /** @bidirekt field */
+  email: string
+}
+
 /**
  * @bidirekt graphql consumes petstore_api query search
  * @bidirekt returns union={Pet: Pet, Owner: Owner}[] as SearchResultList

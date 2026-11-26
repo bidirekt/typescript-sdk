@@ -1,5 +1,6 @@
 import type {
   PrimitiveType,
+  SchemaNode,
   SourceLocation,
   UnionMember,
 } from '../../contract.ts'
@@ -30,7 +31,7 @@ export type GraphqlBlock = {
 }
 
 export type ReturnedType =
-  | { kind: 'schema'; schema: string }
+  | { kind: 'schema'; schema: string; declared?: SchemaNode }
   | { kind: 'primitive'; type: PrimitiveType }
   | { kind: 'scalar'; scalar: string; name?: string }
   | { kind: 'enum'; members: Array<string>; name: string }

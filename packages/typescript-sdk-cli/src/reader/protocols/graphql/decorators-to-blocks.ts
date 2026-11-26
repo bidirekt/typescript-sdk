@@ -169,9 +169,7 @@ export function consumedToRead(
   read: ProtocolRead<GraphqlBlock>,
 ): void {
   const { schema, derived } = returnsToSchema(returns, returnsLocation)
-  if (derived !== undefined) {
-    read.derived.push(derived)
-  }
+  read.derived.push(...derived)
   const operation: Operation = {
     kind,
     name,
@@ -436,9 +434,9 @@ function optionsToEnum(
     }
   }
   return {
-    kind: 'enum',
-    members,
-    name,
+    kind: 'schema',
+    schema: name,
+    declared: { type: 'enum', members },
   }
 }
 
@@ -465,7 +463,11 @@ function optionsToUnion(
       location: nodeToLocation(expression),
     }
   }
-  return { kind: 'union', members, name }
+  return {
+    kind: 'schema',
+    schema: name,
+    declared: { type: 'union', members },
+  }
 }
 
 function expressionToStringLiterals(
