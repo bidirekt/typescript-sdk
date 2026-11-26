@@ -2,7 +2,6 @@ import type {
   PrimitiveType,
   SchemaNode,
   SourceLocation,
-  UnionMember,
 } from '../../contract.ts'
 
 export type OperationKind = 'query' | 'mutation'
@@ -34,8 +33,6 @@ export type ReturnedType =
   | { kind: 'schema'; schema: string; declared?: SchemaNode }
   | { kind: 'primitive'; type: PrimitiveType }
   | { kind: 'scalar'; scalar: string; name?: string }
-  | { kind: 'enum'; members: Array<string>; name: string }
-  | { kind: 'union'; members: Array<UnionMember>; name: string }
 
 export type Returns =
   | { form: 'type'; type: ReturnedType; name?: string }

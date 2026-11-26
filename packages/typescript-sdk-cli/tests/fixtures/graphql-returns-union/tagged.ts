@@ -1,18 +1,6 @@
-/** @bidirekt schema */
-export interface Pet {
-  /** @bidirekt field */
-  name: string
-}
-
-/** @bidirekt schema */
-export interface Owner {
-  /** @bidirekt field */
-  email: string
-}
-
 /**
  * @bidirekt graphql consumes petstore_api query search
- * @bidirekt returns union={Pet: Pet, Owner: Owner}[] as SearchResultList
+ * @bidirekt returns union={Pet: Pet, Owner: Owner}[] as SearchResult
  */
 export function search() {}
 
@@ -24,18 +12,18 @@ export function featured() {}
 
 /**
  * @bidirekt graphql consumes petstore_api query lookup
- * @bidirekt returns union={Pet: Pet, Owner: Owner}? as SearchResultOrNull
+ * @bidirekt returns union={Pet: Pet, Owner: Owner}? as SearchResult
  */
 export function lookup() {}
 
 /**
  * @bidirekt graphql consumes petstore_api query recent
- * @bidirekt returns union={Pet: Pet, Owner: Owner}[]? as SearchResultListOrNull
+ * @bidirekt returns union={Pet: Pet, Owner: Owner}[]? as SearchResult
  */
 export function recent() {}
 
 /**
  * @bidirekt graphql consumes petstore_api query history
- * @bidirekt returns union={Pet: Pet, Owner: Owner}?[] as SearchResultOrNullList
+ * @bidirekt returns union={Pet: Pet, Owner: Owner}?[] as SearchResult
  */
 export function history() {}

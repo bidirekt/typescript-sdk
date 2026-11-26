@@ -206,8 +206,10 @@ function tagToReturns(tag: CommentTag): Returns | Diagnostic {
   if (isDiagnostic(type)) {
     return type
   }
+  const namesType = type.kind === 'schema' && type.declared !== undefined
   if (
     type.kind === 'schema' &&
+    !namesType &&
     name !== undefined &&
     !isList &&
     !typeNullable
@@ -228,7 +230,7 @@ function tagToReturns(tag: CommentTag): Returns | Diagnostic {
   } else if (typeNullable) {
     returns = { form: 'nullable', type }
   }
-  if (name !== undefined) {
+  if (name !== undefined && !namesType) {
     returns.name = name
   }
   return returns
@@ -262,7 +264,11 @@ function textToReturnedType(
         location,
       }
     }
-    return { kind: 'enum', members, name }
+    return {
+      kind: 'schema',
+      schema: name,
+      declared: { type: 'enum', members },
+    }
   }
   if (written.startsWith('union=')) {
     const members = valueToUnionMembers(written.slice('union='.length))
@@ -275,7 +281,11 @@ function textToReturnedType(
         location,
       }
     }
-    return { kind: 'union', members, name }
+    return {
+      kind: 'schema',
+      schema: name,
+      declared: { type: 'union', members },
+    }
   }
   if (!isSchemaName(written)) {
     return unreadableReturns(text, location)

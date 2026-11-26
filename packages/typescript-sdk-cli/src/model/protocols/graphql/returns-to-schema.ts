@@ -78,9 +78,6 @@ function typeToName(type: ReturnedType): string {
       return `${type.type.charAt(0).toUpperCase()}${type.type.slice(1)}`
     case 'scalar':
       return type.name ?? type.scalar
-    case 'enum':
-    case 'union':
-      return type.name
   }
 }
 
@@ -92,10 +89,6 @@ function typeToNode(type: ReturnedType): SchemaNode {
       return { type: type.type }
     case 'scalar':
       return scalarToNode(type.scalar)
-    case 'enum':
-      return { type: 'enum', members: type.members }
-    case 'union':
-      return { type: 'union', members: type.members }
   }
 }
 

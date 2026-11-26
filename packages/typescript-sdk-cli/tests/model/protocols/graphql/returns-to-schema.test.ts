@@ -115,13 +115,11 @@ describe('returnsToSchema', () => {
     )
   })
 
-  it('derives a schema for a primitive, a scalar, an enum and a union, named after each', () => {
+  it('derives a schema for a primitive and a scalar, named after each', () => {
     const returned: Array<ReturnedType> = [
       { kind: 'primitive', type: 'boolean' },
       { kind: 'scalar', scalar: 'DateTime' },
       { kind: 'scalar', scalar: 'DateTime', name: 'Instant' },
-      { kind: 'enum', members: ['AVAILABLE', 'SOLD'], name: 'Status' },
-      { kind: 'union', members: searchMembers, name: 'SearchResult' },
     ]
     assert.deepEqual(
       returned.map((type) => returnsToSchema({ form: 'type', type }, at)),
@@ -154,28 +152,6 @@ describe('returnsToSchema', () => {
             {
               name: 'Instant',
               node: scalarNode,
-              location: at,
-              derived: true,
-            },
-          ],
-        },
-        {
-          schema: 'Status',
-          derived: [
-            {
-              name: 'Status',
-              node: { type: 'enum', members: ['AVAILABLE', 'SOLD'] },
-              location: at,
-              derived: true,
-            },
-          ],
-        },
-        {
-          schema: 'SearchResult',
-          derived: [
-            {
-              name: 'SearchResult',
-              node: { type: 'union', members: searchMembers },
               location: at,
               derived: true,
             },
