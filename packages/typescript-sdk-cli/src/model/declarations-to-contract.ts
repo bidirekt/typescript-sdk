@@ -6,7 +6,12 @@ import type {
   SchemaVocabulary,
   SideBlock,
 } from '../protocols.ts'
-import type { NamedSchema, SchemaNode, SourceLocation } from './contract.ts'
+import type {
+  NamedSchema,
+  Property,
+  SchemaNode,
+  SourceLocation,
+} from './contract.ts'
 import type { Diagnostic } from './diagnostic.ts'
 
 export type Declarations = {
@@ -105,16 +110,24 @@ function declarationsToSchemas(declarations: Array<NamedSchema>): {
 }
 
 function schemaToDuplicateFields(schema: NamedSchema): Array<Diagnostic> {
-  if (schema.node.type !== 'object') {
-    return []
-  }
-  const names = schema.node.properties.map(({ name }) => name)
-  return schema.node.properties
+  const properties = nodeToProperties(schema.node)
+  const names = properties.map(({ name }) => name)
+  return properties
     .filter(({ name }) => names.indexOf(name) !== names.lastIndexOf(name))
     .map(({ name, location }) => ({
       message: `field "${name}" is declared more than once in schema "${schema.name}": give each field a distinct name`,
       location,
     }))
+}
+
+function nodeToProperties(node: SchemaNode): Array<Property> {
+  switch (node.type) {
+    case 'object':
+      return node.properties
+    case 'union':
+      return node.properties ?? []
+  }
+  return []
 }
 
 function isSameSchema(schema: NamedSchema, first: NamedSchema): boolean {
@@ -191,17 +204,24 @@ function typeToReferences(
     case 'ref':
       return [{ schema: node.schema, location }]
     case 'object':
-      return node.properties.flatMap((property) =>
-        nodeToReferences(property.node, property.location, property.vocabulary),
-      )
+      return propertiesToReferences(node.properties)
     case 'array':
       return nodeToReferences(node.items, location, vocabulary)
     case 'map':
       return nodeToReferences(node.values, location, vocabulary)
     case 'union':
-      return node.members.flatMap((member) =>
-        nodeToReferences(member.node, location, vocabulary),
-      )
+      return [
+        ...propertiesToReferences(node.properties ?? []),
+        ...node.members.flatMap((member) =>
+          nodeToReferences(member.node, location, vocabulary),
+        ),
+      ]
   }
   return []
+}
+
+function propertiesToReferences(properties: Array<Property>): Array<Reference> {
+  return properties.flatMap((property) =>
+    nodeToReferences(property.node, property.location, property.vocabulary),
+  )
 }

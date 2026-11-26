@@ -42,7 +42,11 @@ export type SchemaNode = NodeFlags & {
     | { type: 'array'; items: SchemaNode }
     | { type: 'map'; values: SchemaNode }
     | { type: 'enum'; members: Array<string> }
-    | { type: 'union'; members: Array<UnionMember> }
+    | {
+        type: 'union'
+        members: Array<UnionMember>
+        properties?: Array<Property>
+      }
     | { type: 'ref'; schema: string }
   )
 

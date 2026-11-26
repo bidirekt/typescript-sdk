@@ -53,6 +53,10 @@ const fieldKeys = Object.keys(optionUsages)
 
 export const blockFieldKeys = fieldKeys.filter((key) => key !== 'name')
 
+const schemaKeys = ['name', 'union']
+
+const enumSchemaKeys = ['name']
+
 const unionPattern = /^\{([^{}]*)\}$/
 
 const unionMemberPattern = /^([^\s:,]+)\s*:\s*([^\s:,]+)$/
@@ -64,6 +68,7 @@ export function taggedCommentsToSchemaTags(
 ): ReadTagSchemas {
   const read: ReadTagSchemas = {
     schemas: new Set(),
+    unions: new Map(),
     fields: new Map(),
     malformedFields: new Set(),
     errors: [],
@@ -159,16 +164,20 @@ function schemaTagToName(
     taggedSchemas.add(tagged)
     read.schemas.add(element)
   }
-  const declared = tagToName(tag)
-  if (isDiagnostic(declared)) {
-    read.errors.push(declared)
+  const options = argumentsToOptions(
+    tag.arguments,
+    tag,
+    elementToSchemaKeys(element),
+  )
+  if (isDiagnostic(options)) {
+    read.errors.push(options)
     return
   }
   if (ts.isEnumDeclaration(element)) {
-    enumTagToSchema(tag, element, declared, context, read, taggedSchemas)
+    enumTagToSchema(tag, element, options.name, context, read, taggedSchemas)
     return
   }
-  const name = declared ?? element.name?.text
+  const name = options.name ?? element.name?.text
   if (name === undefined) {
     read.errors.push({
       message:
@@ -178,6 +187,19 @@ function schemaTagToName(
     return
   }
   context.schemaDeclarations.set(element, name)
+  if (options.declared?.type === 'union') {
+    read.unions.set(element, {
+      members: options.declared.members,
+      location: tag.location,
+    })
+  }
+}
+
+function elementToSchemaKeys(element: ts.Node): Array<string> {
+  if (ts.isEnumDeclaration(element)) {
+    return enumSchemaKeys
+  }
+  return schemaKeys
 }
 
 function enumTagToSchema(
@@ -219,14 +241,6 @@ function declarationToTagged(
     return declaration
   }
   return context.checker.getSymbolAtLocation(declaration.name) ?? declaration
-}
-
-function tagToName(tag: CommentTag): string | Diagnostic | undefined {
-  const options = argumentsToOptions(tag.arguments, tag, ['name'])
-  if (isDiagnostic(options)) {
-    return options
-  }
-  return options.name
 }
 
 function fieldTagToOptions(

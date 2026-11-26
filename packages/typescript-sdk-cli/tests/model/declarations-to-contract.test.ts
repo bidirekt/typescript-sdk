@@ -215,6 +215,38 @@ describe('declarationsToContract', () => {
     ])
   })
 
+  it('rejects two fields with the same name in the properties of a union at both places', () => {
+    const schema: NamedSchema = {
+      name: 'Node',
+      location: { file: 'src/node.ts', line: 1 },
+      node: {
+        type: 'union',
+        properties: [
+          {
+            name: 'id',
+            location: { file: 'src/node.ts', line: 2 },
+            node: { type: 'string' },
+          },
+          {
+            name: 'id',
+            location: { file: 'src/node.ts', line: 4 },
+            node: { type: 'integer' },
+          },
+        ],
+        members: [{ key: 'Pet', node: { type: 'ref', schema: 'Pet' } }],
+      },
+    }
+    const { errors } = declarationsToContract(declarations([schema, pet(6)]), [
+      calls,
+    ])
+    const message =
+      'field "id" is declared more than once in schema "Node": give each field a distinct name'
+    assert.deepEqual(errors, [
+      { message, location: { file: 'src/node.ts', line: 2 } },
+      { message, location: { file: 'src/node.ts', line: 4 } },
+    ])
+  })
+
   it('rejects two lists with the same name that differ at both places', () => {
     const { errors } = declarationsToContract(
       declarations([
@@ -380,6 +412,43 @@ describe('declarationsToContract', () => {
         message:
           'schema "Pet" is not declared: reference a schema by its name in the contract',
         location: { file: 'src/a.ts', line: 3 },
+      },
+    ])
+  })
+
+  it('rejects a name the properties or the members of a union reference and no schema has, each at its line', () => {
+    const { errors } = declarationsToContract(
+      declarations([
+        {
+          name: 'Node',
+          location: { file: 'src/node.ts', line: 1 },
+          node: {
+            type: 'union',
+            properties: [
+              {
+                name: 'owner',
+                location: { file: 'src/node.ts', line: 2 },
+                node: { type: 'ref', schema: 'Owner' },
+              },
+            ],
+            members: [
+              { key: 'User', node: { type: 'ref', schema: 'UserName' } },
+            ],
+          },
+        },
+      ]),
+      [calls],
+    )
+    assert.deepEqual(errors, [
+      {
+        message:
+          'schema "Owner" is not declared: reference a schema by its name in the contract',
+        location: { file: 'src/node.ts', line: 2 },
+      },
+      {
+        message:
+          'schema "UserName" is not declared: reference a schema by its name in the contract',
+        location: { file: 'src/node.ts', line: 1 },
       },
     ])
   })

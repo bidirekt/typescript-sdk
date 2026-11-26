@@ -535,7 +535,7 @@ A package of your workspace, which npm links into `node_modules`, is read as you
 
 | Decorator                        | Goes on    | Options                                                                    |
 | -------------------------------- | ---------- | -------------------------------------------------------------------------- |
-| `@BidirektSchema(options?)`      | a class    | `name`                                                                     |
+| `@BidirektSchema(options?)`      | a class    | `name`, `union`                                                            |
 | `@BidirektField(options?)`       | a property | `type`, `name`, `optional`, `nullable`, `description`, `union`, see Fields |
 | `@BidirektRestProvider(options)` | a method   | `method`, `path`, `request`, `responses`                                   |
 | `@BidirektRestConsumer(options)` | a method   | `provider`, `method`, `path`, `request`, `responses`                       |
@@ -548,7 +548,7 @@ With `emitDecoratorMetadata` on (NestJS, TypeORM), TypeScript keeps the imports 
 
 | Tag                                                  | Goes above                                                                     |
 | ---------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `@bidirekt schema [name=<Name>]`                     | a class, an `interface`, an object `type` or a string `enum`                   |
+| `@bidirekt schema [name=<Name>] [union={...}]`       | a class, an `interface`, an object `type` or a string `enum`                   |
 | `@bidirekt field [key=value ...]`                    | a property of a schema                                                         |
 | `@bidirekt rest provides <METHOD> <path>`            | a function, an exported arrow function, a method or a statement (`router.get`) |
 | `@bidirekt rest consumes <provider> <METHOD> <path>` | the same                                                                       |
@@ -593,6 +593,8 @@ Without a request (no `request` option, no `@bidirekt request` tag), the resourc
 
 A primitive, a scalar, an enum or a union also takes the place of the schema in a nullable or a list (`{ nullable: 'integer' }`, `'string[]'`, `scalar:DateTime?[]`). Each key of a union is the name of one of its types in the provider's GraphQL schema, and its value the schema the call reads from that type. Each form but a schema returned as it is becomes a schema of the contract, with the name above, and `name` in the decorator or `as <name>` in the tag gives it another one (`{ nullable: Pet, name: 'MaybePet' }`, `Pet? as MaybePet`). They name only a schema `generate` creates: a schema returned as it is is not copied, the call references it by its own name, so `@bidirekt returns Pet as MyPet` stops `generate`. To call it `MyPet`, name the schema itself, with `@BidirektSchema({ name })` or `@bidirekt schema name=<Name>`. A primitive returned as it is takes another name only in the tag (`boolean as Flag`): in the decorator it is a bare string, `'boolean'`, always written as `Boolean`.
 
+A call that reads a GraphQL interface both on the interface and on the types that implement it, as `node(id: $id) { id ... on User { name } ... on Pet { species } }`, returns a schema with a `union`: its fields are the ones read on the interface, and `union` maps each type read with `... on` to the schema the call reads from it. `@BidirektSchema({ union: { User: UserName, Pet: PetSpecies } })` on a class `Node` with `@BidirektField() id`, or `@bidirekt schema union={User: UserName, Pet: PetSpecies}` above `interface Node` with a `@bidirekt field` on `id`, writes `Node` as `type: union`, with `id` in its `properties` and `User` and `Pet` in its `members`. A member's schema holds only the fields read on its own type: a member class that extends `Node` would repeat `id`. A schema with a `union` and no field writes only the `members`, a named union like `{ union: {...}, name }`. `union=` goes above a class, an interface or an object type, never above an enum.
+
 ### Fields
 
 | Decorator                                       | Tag                                          | What it declares                                                                                                                |
@@ -633,7 +635,7 @@ A declared `type` is the whole type of the field, whatever TypeScript says: a pr
 
 - A schema is named after its class, interface or object type; `name` gives it another name in the contract. An anonymous class (`export default class`) needs a `name`.
 - Every schema is written, even one no handler references. Two schemas with the same name in the contract stop `generate`; give one of them a `name`.
-- A schema without a field stops `generate`, and so does `@bidirekt schema` above an object type that is only an index signature: that is a map, used as a field's type.
+- A schema without a field or a `union` stops `generate`, and so does `@bidirekt schema` above an object type that is only an index signature: that is a map, used as a field's type.
 - A string enum used by a field is written as a schema named after it. `@bidirekt schema` above the enum gives it another name with `name=`, and writes it even when no field uses it, so tags can reference it (`@bidirekt response 200 PetStatus`). An enum without string members can't be a schema, and `generate` warns.
 - A schema class takes the annotated fields of its parent classes, whether or not they are schemas; a schema interface takes those of the interfaces it extends, and of all its blocks. A parent `generate` can't read, like a mixin or a utility type (`Omit<Pet, 'secret'>`), stops it: declare the fields in the schema.
 

@@ -7,3 +7,10 @@ export class Pet {
   @BidirektField({ name: 'name' })
   name: string
 }
+
+@BidirektSchema({ union: { Pet: Pet } })
+@BidirektSchema()
+export class Owner {
+  @BidirektField()
+  name: string
+}

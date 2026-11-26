@@ -4,6 +4,7 @@ import type {
   Property,
   SchemaNode,
   SourceLocation,
+  UnionMember,
 } from '../model/contract.ts'
 import { isDiagnostic } from '../model/diagnostic.ts'
 import type { Diagnostic } from '../model/diagnostic.ts'
@@ -87,8 +88,14 @@ export type VocabularyExtension = {
 
 export type TagAnnotations = {
   schemas: Set<SchemaDeclaration>
+  unions: Map<SchemaDeclaration, DeclaredUnion>
   fields: Map<SchemaMember, TagField>
   malformedFields: Set<SchemaMember>
+}
+
+export type DeclaredUnion = {
+  members: Array<UnionMember>
+  location: SourceLocation
 }
 
 export type TagField = {
@@ -107,6 +114,13 @@ type FieldAnnotation =
   | ({ from: 'tag' } & TagField)
 
 type FieldAnnotations = Map<SchemaMember, FieldAnnotation>
+
+type SchemaClassOptions = {
+  name: string
+  union?: ts.Expression
+}
+
+const schemaOptionKeys = ['name', 'union']
 
 const fieldOptionKeys = [
   'name',
@@ -169,6 +183,7 @@ export function sdkReferencesToSchemas(
     }
   }
   const unreadOptions = new Set<SchemaDeclaration>()
+  const unionOptions = new Map<SchemaDeclaration, ts.Expression | undefined>()
   for (const [declaration, call] of schemaDecorators) {
     if (tags.schemas.has(declaration)) {
       errors.add({
@@ -179,16 +194,30 @@ export function sdkReferencesToSchemas(
       continue
     }
     let name = declaration.name?.text
-    const declared = schemaClassToName(declaration, call)
+    const declared = schemaClassToOptions(declaration, call)
     if (isDiagnostic(declared)) {
       errors.add(declared)
       unreadOptions.add(declaration)
     } else {
-      name = declared
+      name = declared.name
+      unionOptions.set(declaration, declared.union)
     }
     if (name !== undefined) {
       context.schemaDeclarations.set(declaration, name)
     }
+  }
+  const unions = new Map(tags.unions)
+  for (const [declaration, expression] of unionOptions) {
+    if (expression === undefined) {
+      continue
+    }
+    const members = expressionToUnionMembers(expression, '"union"', context)
+    if (isDiagnostic(members)) {
+      errors.add(members)
+      unreadOptions.add(declaration)
+      continue
+    }
+    unions.set(declaration, { members, location: nodeToLocation(expression) })
   }
   const fields = new Map<SchemaMember, Property | Diagnostic>()
   const schemas: Array<NamedSchema> = []
@@ -202,8 +231,10 @@ export function sdkReferencesToSchemas(
   for (const [declaration, name] of context.schemaDeclarations) {
     const properties: Array<Property> = []
     const declaredFields = declarationToFields(declaration, reading)
+    const union = unions.get(declaration)
     if (
       declaredFields.length === 0 &&
+      union === undefined &&
       !unreadOptions.has(declaration) &&
       !hasUnreadFields(declaration, reading)
     ) {
@@ -225,9 +256,13 @@ export function sdkReferencesToSchemas(
         properties.push(read)
       }
     }
+    const selfMember = union && unionToSelfMemberDiagnostic(union, name)
+    if (selfMember !== undefined) {
+      errors.add(selfMember)
+    }
     schemas.push({
       name,
-      node: { type: 'object', properties },
+      node: propertiesToSchemaNode(properties, union),
       location: nodeToLocation(declaration.name ?? declaration),
     })
   }
@@ -239,6 +274,35 @@ export function sdkReferencesToSchemas(
       ...schemaDecorators.map(([declaration]) => declaration),
     ]),
   }
+}
+
+function unionToSelfMemberDiagnostic(
+  union: DeclaredUnion,
+  name: string,
+): Diagnostic | undefined {
+  const itself = union.members.find(
+    ({ node }) => node.type === 'ref' && node.schema === name,
+  )
+  if (itself === undefined) {
+    return undefined
+  }
+  return {
+    message: `schema "${name}" lists itself as member "${itself.key}" of its union: remove that member`,
+    location: union.location,
+  }
+}
+
+function propertiesToSchemaNode(
+  properties: Array<Property>,
+  union: DeclaredUnion | undefined,
+): SchemaNode {
+  if (union === undefined) {
+    return { type: 'object', properties }
+  }
+  if (properties.length === 0) {
+    return { type: 'union', members: union.members }
+  }
+  return { type: 'union', properties, members: union.members }
 }
 
 function protocolsToFieldDecorators(
@@ -333,14 +397,14 @@ export function declarationToDescription(
   return `class "${name}"`
 }
 
-function schemaClassToName(
+function schemaClassToOptions(
   declaration: ts.ClassDeclaration,
   call: ts.CallExpression,
-): string | Diagnostic {
+): SchemaClassOptions | Diagnostic {
   const options = expressionToLiteralOptions(
     call.arguments[0],
     '@BidirektSchema options',
-    ['name'],
+    schemaOptionKeys,
   )
   if (isDiagnostic(options)) {
     return options
@@ -357,7 +421,7 @@ function schemaClassToName(
       location: nodeToLocation(declaration),
     }
   }
-  return resolved
+  return { name: resolved, union: options.get('union') }
 }
 
 function declarationToFields(

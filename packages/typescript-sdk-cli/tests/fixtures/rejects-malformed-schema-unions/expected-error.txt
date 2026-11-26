@@ -1,0 +1,5 @@
+accounts.ts:1 cannot read "union={User}" in "@bidirekt schema": write "union={<key>: <schema>, ...}"
+accounts.ts:5 schema "Missing" is not declared: reference a schema by its name in the contract
+nodes.ts:15 "union" must be an object literal written in place
+nodes.ts:18 cannot translate class "Unannotated": add @BidirektSchema to it
+nodes.ts:21 union key "[userKey]" must be written in place: write User

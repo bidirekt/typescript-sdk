@@ -1,0 +1,2 @@
+accounts.ts:7 schema "Account" lists itself as member "Account" of its union: remove that member
+nodes.ts:9 schema "Node" lists itself as member "Node" of its union: remove that member

@@ -1,5 +1,5 @@
 import { Document, Pair, Scalar, YAMLMap, YAMLSeq } from 'yaml'
-import type { NamedSchema, SchemaNode } from '../model/contract.ts'
+import type { NamedSchema, Property, SchemaNode } from '../model/contract.ts'
 import type {
   Contract,
   ProtocolModule,
@@ -83,20 +83,10 @@ function nodeToYaml(
     case 'ref':
       fields.add(new Pair('ref', node.schema))
       break
-    case 'object': {
+    case 'object':
       fields.add(new Pair('type', node.type))
-      const properties = new YAMLMap()
-      for (const property of node.properties) {
-        properties.add(
-          new Pair(
-            property.name,
-            nodeToYaml(property.node, property.vocabulary),
-          ),
-        )
-      }
-      fields.add(new Pair('properties', properties))
+      fields.add(new Pair('properties', propertiesToYaml(node.properties)))
       break
-    }
     case 'array':
       fields.add(new Pair('type', node.type))
       fields.add(new Pair('items', nodeToYaml(node.items, vocabulary)))
@@ -111,6 +101,9 @@ function nodeToYaml(
       break
     case 'union': {
       fields.add(new Pair('type', node.type))
+      if (node.properties !== undefined) {
+        fields.add(new Pair('properties', propertiesToYaml(node.properties)))
+      }
       const members = new YAMLMap()
       for (const member of node.members) {
         members.add(new Pair(member.key, nodeToYaml(member.node, vocabulary)))
@@ -134,6 +127,16 @@ function nodeToYaml(
     fields.add(new Pair('description', node.description))
   }
   return fields
+}
+
+function propertiesToYaml(properties: Array<Property>): YAMLMap {
+  const map = new YAMLMap()
+  for (const property of properties) {
+    map.add(
+      new Pair(property.name, nodeToYaml(property.node, property.vocabulary)),
+    )
+  }
+  return map
 }
 
 function enumMembersToYaml(members: Array<string>): YAMLSeq {

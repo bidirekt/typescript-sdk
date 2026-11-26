@@ -17,6 +17,7 @@ export type BidirektBody =
 
 export interface BidirektSchemaOptions {
   name?: string
+  union?: Record<string, BidirektSchemaClass>
 }
 
 export interface BidirektFieldOptions {

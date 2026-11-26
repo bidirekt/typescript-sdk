@@ -47,6 +47,12 @@ class PixPayment {
   key!: string
 }
 
+@BidirektSchema({ union: { card: CardPayment, pix: PixPayment } })
+class Payment {
+  @BidirektField({ type: 'integer' })
+  amount!: number
+}
+
 @BidirektSchema()
 class Pet {
   @BidirektField({ type: 'integer' })

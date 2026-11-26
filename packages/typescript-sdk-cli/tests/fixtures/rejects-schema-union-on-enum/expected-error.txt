@@ -1,0 +1,1 @@
+pets.ts:7 cannot read "union={Available: AvailablePet}" in "@bidirekt schema": write "name=<name>"
