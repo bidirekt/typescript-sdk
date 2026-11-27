@@ -1,21 +1,15 @@
 #!/bin/sh
 # Publishes the expected.yaml of every success fixture, with the *.graphqls beside it, to a throwaway broker, one participant per fixture.
-# Proves the broker accepts what generate writes. COMPOSE_PROJECT_NAME picks the compose project (default typescript-sdk-e2e).
-# E2E_COMPOSE_OVERRIDE names a compose file passed as a second -f, such as one with broker and CLI images that read GraphQL.
-# Without it the GraphQL fixtures are skipped; with it two GraphQL consumers are also checked against a subgraph's SDL.
+# Proves the broker accepts what generate writes, then checks two GraphQL consumers against a subgraph's SDL.
+# COMPOSE_PROJECT_NAME picks the compose project (default typescript-sdk-e2e).
 set -eu
 
 dir=$(cd "$(dirname "$0")" && pwd)
 fixtures=$(cd "$dir/../fixtures" && pwd)
 project=${COMPOSE_PROJECT_NAME:-typescript-sdk-e2e}
-override=${E2E_COMPOSE_OVERRIDE:-}
 
 compose() {
-  if [ -n "$override" ]; then
-    docker compose -p "$project" -f "$dir/compose.yaml" -f "$override" "$@"
-  else
-    docker compose -p "$project" -f "$dir/compose.yaml" "$@"
-  fi
+  docker compose -p "$project" -f "$dir/compose.yaml" "$@"
 }
 
 cli() {
@@ -51,15 +45,9 @@ contract_files() {
 
 published=0
 rejected=0
-skipped=0
 for expected in "$fixtures"/*/expected.yaml; do
   fixture=$(basename "$(dirname "$expected")")
   participant=e2e_$(printf '%s' "$fixture" | tr - _)
-
-  if [ -z "$override" ] && grep -Eq '^( {2}| {4})graphql:$' "$expected"; then
-    skipped=$((skipped + 1))
-    continue
-  fi
 
   if output=$(cli create-participant "$participant") &&
     output=$(cli publish $(contract_files "$fixture") --participant "$participant" --version 1); then
@@ -72,12 +60,8 @@ for expected in "$fixtures"/*/expected.yaml; do
   fi
 done
 
-echo "$published published, $rejected rejected, $skipped GraphQL fixtures skipped"
+echo "$published published, $rejected rejected"
 [ "$rejected" = 0 ]
-
-if [ -z "$override" ]; then
-  exit 0
-fi
 
 provider=graphql-graph-only
 consumer=graphql-consumer-handlers

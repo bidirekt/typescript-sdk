@@ -4,7 +4,7 @@
 
 In Bidirekt, each side of an integration declares in a contract file what it provides and what it consumes. This SDK writes that file from TypeScript and JavaScript code: you annotate the schemas and the handlers that provide or consume each resource, run `generate`, and get `contracts/generated.yaml`, ready for `bidirekt validate` and `bidirekt publish`. It comes in two packages: `@bidirekt/typescript-sdk`, the decorators your code imports, and `@bidirekt/typescript-sdk-cli`, the `generate` command.
 
-`contracts/generated.yaml` is the service's only contract file: once a service adopts the SDK, every resource and schema it provides or consumes is annotated in its code.
+Once a service adopts the SDK, every resource and schema it provides or consumes is annotated in its code, and `contracts/generated.yaml` is its contract file. A subgraph also publishes its own GraphQL schema beside it, which the SDK never writes: see The `generate` command.
 
 ## Installation
 
@@ -20,7 +20,7 @@ With decorators, your app imports them at runtime, so install them as a regular 
 npm install @bidirekt/typescript-sdk
 ```
 
-Their types need TypeScript 5.0 or later.
+Their types need TypeScript 5.0 or later. GraphQL contracts need the Bidirekt CLI and broker 0.4.0 or later.
 
 ## Quickstart
 
@@ -513,7 +513,7 @@ npx @bidirekt/typescript-sdk-cli generate --check
 
 Each error is printed as `file:line message`; on an error nothing is written and the exit code is 1. A warning is printed as `file:line warning: message` and doesn't change the exit code.
 
-`contracts/generated.yaml` is the service's only contract, and you never edit it by hand: the next `generate` writes over it. Regenerate it whenever an annotation or an annotated type changes, commit it with the code, and ship it like any contract file:
+You never edit `contracts/generated.yaml` by hand: the next `generate` writes over it. Regenerate it whenever an annotation or an annotated type changes, commit it with the code, and ship it like any contract file:
 
 ```sh
 npx @bidirekt/typescript-sdk-cli generate
