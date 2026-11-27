@@ -1,6 +1,6 @@
 {
   "name": "@bidirekt/typescript-sdk-cli",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -25,7 +25,7 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@bidirekt/typescript-sdk": "0.2.0",
+    "@bidirekt/typescript-sdk": "0.3.0",
     "typescript": "~6.0.3",
     "yaml": "^2.9.1"
   }
