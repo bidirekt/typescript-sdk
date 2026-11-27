@@ -1,0 +1,8 @@
+clients.ts:26 arguments of query pet consumed from "petstore_api" is declared as PetArgs and PetByNameArgs: declare the same arguments in every handler
+clients.ts:26 returns of query pet consumed from "petstore_api" is declared as MaybePet and Pet: declare the same returns in every handler
+clients.ts:29 arguments of mutation adoptPet consumed from "petstore_api" is declared in one handler and not in another: declare the same arguments in every handler
+clients.ts:34 arguments of query pet consumed from "petstore_api" is declared as PetArgs and PetByNameArgs: declare the same arguments in every handler
+clients.ts:34 returns of query pet consumed from "petstore_api" is declared as MaybePet and Pet: declare the same returns in every handler
+clients.ts:37 arguments of mutation adoptPet consumed from "petstore_api" is declared in one handler and not in another: declare the same arguments in every handler
+tagged.ts:3 returns of mutation deletePet consumed from "petstore_api" is declared as Boolean and BooleanOrNull: declare the same returns in every handler
+tagged.ts:9 returns of mutation deletePet consumed from "petstore_api" is declared as Boolean and BooleanOrNull: declare the same returns in every handler

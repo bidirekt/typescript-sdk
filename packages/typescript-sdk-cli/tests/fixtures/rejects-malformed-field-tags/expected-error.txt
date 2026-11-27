@@ -1,4 +1,4 @@
-pets.js:1 cannot read "Pet" in "@bidirekt schema": write "name=<name>"
+pets.js:1 cannot read "Pet" in "@bidirekt schema": write "<key>=<value>" with key name or union
 pets.js:4 cannot name an anonymous class: declare it with "@bidirekt schema name=<name>"
 pets.js:9 cannot read "kind=integer" in "@bidirekt field": write "<key>=<value>" with key type, name, optional, nullable, description or union
 pets.js:12 cannot read "integer" in "@bidirekt field": write "<key>=<value>" with key type, name, optional, nullable, description or union

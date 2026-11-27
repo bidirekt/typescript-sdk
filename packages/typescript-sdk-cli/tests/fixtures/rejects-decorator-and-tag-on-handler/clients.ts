@@ -1,11 +1,11 @@
-import { BidirektConsumer } from '@bidirekt/typescript-sdk'
+import { BidirektRestConsumer } from '@bidirekt/typescript-sdk'
 
 export class PaymentsClient {
   /**
-   * @bidirekt consumes payments_api POST /charges
+   * @bidirekt rest consumes payments_api POST /charges
    * @bidirekt response 402
    */
-  @BidirektConsumer({
+  @BidirektRestConsumer({
     provider: 'payments_api',
     method: 'POST',
     path: '/charges',

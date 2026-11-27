@@ -3,10 +3,18 @@ import type { UnionMember } from '../model/contract.ts'
 import { descriptionToDiagnostic } from '../model/description.ts'
 import { isDiagnostic } from '../model/diagnostic.ts'
 import type { Diagnostic } from '../model/diagnostic.ts'
-import { argumentToOption, isHandlerTag } from './comment-tags.ts'
-import { namesToChoice } from './literal-options.ts'
+import type {
+  OptionValue,
+  ProtocolModule,
+  SchemaVocabulary,
+} from '../protocols.ts'
+import { argumentToOption, isHandlerTag, tagToLabel } from './comment-tags.ts'
+import { hintToSuffix, namesToChoice } from './literal-options.ts'
 import type { CommentTag, TaggedComment } from './comment-tags.ts'
-import { declarationToDescription } from './schema-classes.ts'
+import {
+  declarationToDescription,
+  optionToOwningProtocol,
+} from './schema-classes.ts'
 import type { FieldOptions, TagAnnotations } from './schema-classes.ts'
 import {
   isObjectDeclaration,
@@ -48,6 +56,10 @@ const fieldKeys = Object.keys(optionUsages)
 
 export const blockFieldKeys = fieldKeys.filter((key) => key !== 'name')
 
+const schemaKeys = ['name', 'union']
+
+const enumSchemaKeys = ['name']
+
 const unionPattern = /^\{([^{}]*)\}$/
 
 const unionMemberPattern = /^([^\s:,]+)\s*:\s*([^\s:,]+)$/
@@ -55,26 +67,42 @@ const unionMemberPattern = /^([^\s:,]+)\s*:\s*([^\s:,]+)$/
 export function taggedCommentsToSchemaTags(
   comments: Array<TaggedComment>,
   context: SchemaContext,
+  protocols: ReadonlyArray<ProtocolModule>,
 ): ReadTagSchemas {
   const read: ReadTagSchemas = {
     schemas: new Set(),
+    unions: new Map(),
     fields: new Map(),
     malformedFields: new Set(),
     errors: [],
     warnings: [],
   }
   const tagged: TaggedElements = { schemas: new Set(), fields: new Set() }
-  for (const { element, tags } of comments) {
+  for (const { element, tags, hasUnknownTag = false } of comments) {
     if (tags.some(isHandlerTag) || isDeclaredByScript(element, context)) {
       continue
     }
     const schemaTag = tagsToSingle(tags, 'schema', read)
     if (schemaTag !== undefined) {
-      schemaTagToName(schemaTag, element, context, read, tagged.schemas)
+      schemaTagToName(
+        schemaTag,
+        element,
+        context,
+        read,
+        tagged.schemas,
+        hasUnknownTag,
+      )
     }
     const fieldTag = tagsToSingle(tags, 'field', read)
     if (fieldTag !== undefined) {
-      fieldTagToOptions(fieldTag, element, read, tagged.fields)
+      fieldTagToOptions(
+        fieldTag,
+        element,
+        read,
+        tagged.fields,
+        protocols,
+        hasUnknownTag,
+      )
     }
   }
   return read
@@ -114,6 +142,7 @@ function schemaTagToName(
   context: SchemaContext,
   read: ReadTagSchemas,
   taggedSchemas: Set<ts.Node | ts.Symbol>,
+  hasUnknownTag: boolean,
 ): void {
   if (ts.isJSDocTypedefTag(element) || ts.isJSDocCallbackTag(element)) {
     read.warnings.push({
@@ -123,11 +152,12 @@ function schemaTagToName(
     return
   }
   if (!ts.isEnumDeclaration(element) && !isObjectDeclaration(element)) {
-    read.warnings.push({
-      message:
-        '"@bidirekt schema" is not above an enum, a class, an interface or an object type, so it is not read: put it above one of them',
-      location: tag.location,
-    })
+    warnMisplaced(
+      read,
+      hasUnknownTag,
+      '"@bidirekt schema" is not above an enum, a class, an interface or an object type, so it is not read: put it above one of them',
+      tag,
+    )
     return
   }
   if (
@@ -153,16 +183,20 @@ function schemaTagToName(
     taggedSchemas.add(tagged)
     read.schemas.add(element)
   }
-  const declared = tagToName(tag)
-  if (isDiagnostic(declared)) {
-    read.errors.push(declared)
+  const options = argumentsToOptions(
+    tag.arguments,
+    tag,
+    elementToSchemaKeys(element),
+  )
+  if (isDiagnostic(options)) {
+    read.errors.push(options)
     return
   }
   if (ts.isEnumDeclaration(element)) {
-    enumTagToSchema(tag, element, declared, context, read, taggedSchemas)
+    enumTagToSchema(tag, element, options.name, context, read, taggedSchemas)
     return
   }
-  const name = declared ?? element.name?.text
+  const name = options.name ?? element.name?.text
   if (name === undefined) {
     read.errors.push({
       message:
@@ -172,6 +206,19 @@ function schemaTagToName(
     return
   }
   context.schemaDeclarations.set(element, name)
+  if (options.declared?.type === 'union') {
+    read.unions.set(element, {
+      members: options.declared.members,
+      location: tag.location,
+    })
+  }
+}
+
+function elementToSchemaKeys(element: ts.Node): Array<string> {
+  if (ts.isEnumDeclaration(element)) {
+    return enumSchemaKeys
+  }
+  return schemaKeys
 }
 
 function enumTagToSchema(
@@ -205,6 +252,19 @@ function enumTagToSchema(
   }
 }
 
+// An unknown tag can be the handler of its comment, whose schema and field tags are then the handler's.
+function warnMisplaced(
+  read: ReadTagSchemas,
+  hasUnknownTag: boolean,
+  message: string,
+  tag: CommentTag,
+): void {
+  if (hasUnknownTag) {
+    return
+  }
+  read.warnings.push({ message, location: tag.location })
+}
+
 function declarationToTagged(
   declaration: SchemaDeclaration,
   context: SchemaContext,
@@ -215,26 +275,21 @@ function declarationToTagged(
   return context.checker.getSymbolAtLocation(declaration.name) ?? declaration
 }
 
-function tagToName(tag: CommentTag): string | Diagnostic | undefined {
-  const options = argumentsToOptions(tag.arguments, tag, ['name'])
-  if (isDiagnostic(options)) {
-    return options
-  }
-  return options.name
-}
-
 function fieldTagToOptions(
   tag: CommentTag,
   element: ts.Node,
   read: ReadTagSchemas,
   taggedFields: Set<ts.Node>,
+  protocols: ReadonlyArray<ProtocolModule>,
+  hasUnknownTag: boolean,
 ): void {
   if (!ts.isPropertyDeclaration(element) && !ts.isPropertySignature(element)) {
-    read.warnings.push({
-      message:
-        '"@bidirekt field" is not above a property, so it is not read: put it above a property of a class, an interface or an object type',
-      location: tag.location,
-    })
+    warnMisplaced(
+      read,
+      hasUnknownTag,
+      '"@bidirekt field" is not above a property, so it is not read: put it above a property of a class, an interface or an object type',
+      tag,
+    )
     return
   }
   if (isStatic(element)) {
@@ -253,44 +308,68 @@ function fieldTagToOptions(
     return
   }
   taggedFields.add(element)
-  const options = argumentsToOptions(tag.arguments, tag, fieldKeys)
+  const options = argumentsToOptions(tag.arguments, tag, fieldKeys, protocols)
   if (isDiagnostic(options)) {
     read.errors.push(options)
     read.malformedFields.add(element)
     return
   }
-  read.fields.set(element, { options, location: tag.location })
+  read.fields.set(element, {
+    label: tagToLabel(tag),
+    options,
+    location: tag.location,
+  })
+}
+
+function tagToVocabulary(
+  tag: CommentTag,
+  protocols: ReadonlyArray<ProtocolModule>,
+): SchemaVocabulary | undefined {
+  return protocols.find(({ name }) => name === tag.vocabulary)?.vocabulary
 }
 
 export function argumentsToOptions(
   tagArguments: Array<string>,
   tag: CommentTag,
   keys: Array<string>,
+  protocols: ReadonlyArray<ProtocolModule> = [],
 ): FieldOptions | Diagnostic {
   if (tag.error !== undefined) {
     return tag.error
   }
   const options: FieldOptions = {}
   const seen = new Set<string>()
+  const vocabulary = tagToVocabulary(tag, protocols)
+  const known = [...keys, ...(vocabulary?.fieldOptions ?? [])]
+  const vocabularyOptions: Record<string, OptionValue> = {}
   for (const argument of tagArguments) {
     const option = argumentToOption(argument)
     const key = option?.key ?? ''
     const fail = (usage: string): Diagnostic => ({
-      message: `cannot read "${argument}" in "@bidirekt ${tag.keyword}": write ${usage}`,
+      message: `cannot read "${argument}" in "${tagToLabel(tag)}": write ${usage}`,
       location: tag.location,
     })
-    if (option === undefined || !keys.includes(key)) {
-      return fail(keysToUsage(keys))
+    if (option === undefined || !known.includes(key)) {
+      return fail(
+        `${keysToUsage(known)}${hintToSuffix(optionToFieldTagHint(key, protocols))}`,
+      )
     }
     if (seen.has(key)) {
       return {
-        message: `"${key}=" is declared more than once in "@bidirekt ${tag.keyword}": keep one`,
+        message: `"${key}=" is declared more than once in "${tagToLabel(tag)}": keep one`,
         location: tag.location,
       }
     }
     seen.add(key)
     const value = option.value
-    const usage = fail(optionUsages[key])
+    const usage = fail(keyToUsage(key))
+    if (!keys.includes(key)) {
+      if (value === '') {
+        return usage
+      }
+      vocabularyOptions[key] = value
+      continue
+    }
     switch (key) {
       case 'type': {
         const declared = tagTypeTextToSchemaNode(value)
@@ -335,22 +414,44 @@ export function argumentsToOptions(
   }
   if (seen.has('type') && seen.has('union')) {
     return {
-      message:
-        'declare either "type=" or "union=" in "@bidirekt field", not both',
+      message: `declare either "type=" or "union=" in "${tagToLabel(tag)}", not both`,
       location: tag.location,
     }
+  }
+  if (vocabulary !== undefined) {
+    options.extension = { vocabulary, options: vocabularyOptions }
   }
   return options
 }
 
+function optionToFieldTagHint(
+  key: string,
+  protocols: ReadonlyArray<ProtocolModule>,
+): string | undefined {
+  const owner = optionToOwningProtocol(key, protocols)
+  if (owner?.vocabulary === undefined) {
+    return undefined
+  }
+  return `for ${owner.vocabulary.label}, use "@bidirekt ${owner.name} field"`
+}
+
 function keysToUsage(keys: Array<string>): string {
   if (keys.length === 1) {
-    return optionUsages[keys[0]]
+    return keyToUsage(keys[0])
   }
   return `"<key>=<value>" with key ${namesToChoice(keys)}`
 }
 
-function valueToUnionMembers(value: string): Array<UnionMember> | undefined {
+function keyToUsage(key: string): string {
+  if (Object.hasOwn(optionUsages, key)) {
+    return optionUsages[key]
+  }
+  return `"${key}=<value>"`
+}
+
+export function valueToUnionMembers(
+  value: string,
+): Array<UnionMember> | undefined {
   const braces = unionPattern.exec(value)
   if (braces === null) {
     return undefined

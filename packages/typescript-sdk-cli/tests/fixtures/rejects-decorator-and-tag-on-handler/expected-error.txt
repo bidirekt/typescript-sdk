@@ -1,4 +1,4 @@
-clients.ts:5 @BidirektConsumer and "@bidirekt consumes payments_api POST /charges" are both on this handler: keep one
-clients.ts:8 @BidirektConsumer and "@bidirekt consumes payments_api POST /charges" are both on this handler: keep one
-pets.ts:5 @BidirektProvider and "@bidirekt provides GET /pets" are both on this handler: keep one
-pets.ts:8 @BidirektProvider and "@bidirekt provides GET /pets" are both on this handler: keep one
+clients.ts:5 @BidirektRestConsumer and "@bidirekt rest consumes payments_api POST /charges" are both on this handler: keep one
+clients.ts:8 @BidirektRestConsumer and "@bidirekt rest consumes payments_api POST /charges" are both on this handler: keep one
+pets.ts:5 @BidirektRestProvider and "@bidirekt rest provides GET /pets" are both on this handler: keep one
+pets.ts:8 @BidirektRestProvider and "@bidirekt rest provides GET /pets" are both on this handler: keep one

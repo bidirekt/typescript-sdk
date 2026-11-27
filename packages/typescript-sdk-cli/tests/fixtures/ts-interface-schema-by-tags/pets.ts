@@ -36,7 +36,7 @@ export class Shelter {
 }
 
 /**
- * @bidirekt provides GET /pets/*
+ * @bidirekt rest provides GET /pets/*
  * @bidirekt response 200 PetResponse
  * @bidirekt response 404
  */
@@ -45,7 +45,7 @@ export function findPet(id: string): Pet | undefined {
 }
 
 /**
- * @bidirekt provides GET /dogs
+ * @bidirekt rest provides GET /dogs
  * @bidirekt response 200 Dog[]
  */
 export function listDogs(): Array<Dog> {

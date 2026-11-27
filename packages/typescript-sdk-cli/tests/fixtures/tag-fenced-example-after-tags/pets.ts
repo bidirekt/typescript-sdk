@@ -7,7 +7,7 @@ export class Pet {
 }
 
 /**
- * @bidirekt provides POST /pets
+ * @bidirekt rest provides POST /pets
  * @bidirekt request Pet
  * @bidirekt response 201
  *

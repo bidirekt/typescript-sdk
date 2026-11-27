@@ -59,8 +59,12 @@ function nestedTextToSchemaNode(
   return leafToSchemaNode(text)
 }
 
+export function textToPrimitive(text: string): PrimitiveType | undefined {
+  return primitiveTypes.find((type) => type === text)
+}
+
 function primitiveToSchemaNode(text: string): SchemaNode | undefined {
-  const primitive = primitiveTypes.find((type) => type === text)
+  const primitive = textToPrimitive(text)
   if (primitive === undefined) {
     return undefined
   }

@@ -1,12 +1,21 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
+import { YAMLMap } from 'yaml'
 import type {
-  Contract,
   NamedSchema,
-  ProvidedResource,
   SchemaNode,
+  SourceLocation,
 } from '../../src/model/contract.ts'
-import { declarationsToContract } from '../../src/model/declarations-to-contract.ts'
+import {
+  contractToProtocolBlocks,
+  declarationsToContract,
+} from '../../src/model/declarations-to-contract.ts'
+import type { Declarations } from '../../src/model/declarations-to-contract.ts'
+import type {
+  ProtocolModule,
+  Reference,
+  SideBlock,
+} from '../../src/protocols.ts'
 
 const petList: SchemaNode = {
   type: 'array',
@@ -30,24 +39,52 @@ function pet(line: number): NamedSchema {
   }
 }
 
-function listing(
-  file: string,
-  schema: string | null,
-  path = '/pets',
-): ProvidedResource {
-  return {
-    method: 'GET',
-    path,
-    responses: [{ status: 200, schema, location: { file, line: 3 } }],
-    location: { file, line: 2 },
-  }
+const callsMergeError = {
+  message: 'calls are merged with an error',
+  location: { file: 'src/calls.ts', line: 9 },
+}
+
+const calls: ProtocolModule<Array<Reference>> = {
+  name: 'calls',
+  exports: {},
+  tagKeywords: [],
+  read: () => ({ blocks: [], derived: [], errors: [] }),
+  merge: (sideBlocks) => {
+    const block = sideBlocks.flatMap((sideBlock) => sideBlock.block)
+    if (block.some(({ schema }) => schema === 'Conflict')) {
+      return { block, errors: [callsMergeError] }
+    }
+    return { block, errors: [] }
+  },
+  references: (block) => block,
+  isEmpty: (block) => block.length === 0,
+  toYaml: () => new YAMLMap(),
+  vocabulary: {
+    label: 'Calls',
+    fieldDecorator: 'CallsField',
+    fieldOptions: ['arguments'],
+    toNode: (options, node) => ({ ...node, extra: options }),
+    toYaml: () => undefined,
+    references: (node) => {
+      const fieldArguments = node.extra?.arguments
+      if (typeof fieldArguments !== 'string') {
+        return []
+      }
+      return [fieldArguments]
+    },
+  },
+}
+
+function call(schema: string, line: number): Reference {
+  const location: SourceLocation = { file: 'src/calls.ts', line }
+  return { schema, location }
 }
 
 function declarations(
   schemas: Array<NamedSchema>,
-  provides: Array<ProvidedResource> = [],
-): Contract {
-  return { provides, consumes: [], schemas }
+  blocks: Array<SideBlock<Array<Reference>>> = [],
+): Declarations {
+  return { blocks: new Map([['calls', blocks]]), schemas }
 }
 
 describe('declarationsToContract', () => {
@@ -59,6 +96,7 @@ describe('declarationsToContract', () => {
     }
     const { contract, errors } = declarationsToContract(
       declarations([pet(1), owner]),
+      [calls],
     )
     assert.deepEqual(errors, [])
     assert.deepEqual(contract.schemas, [pet(1), owner])
@@ -66,25 +104,20 @@ describe('declarationsToContract', () => {
 
   it('writes an identical derived list used in several places once', () => {
     const { contract, errors } = declarationsToContract(
-      declarations(
-        [
-          pet(1),
-          {
-            name: 'PetList',
-            location: { file: 'src/a.ts', line: 3 },
-            node: petList,
-          },
-          {
-            name: 'PetList',
-            location: { file: 'src/b.ts', line: 3 },
-            node: { type: 'array', items: { type: 'ref', schema: 'Pet' } },
-          },
-        ],
-        [
-          listing('src/a.ts', 'PetList'),
-          listing('src/b.ts', 'PetList', '/pets/recent'),
-        ],
-      ),
+      declarations([
+        pet(1),
+        {
+          name: 'PetList',
+          location: { file: 'src/a.ts', line: 3 },
+          node: petList,
+        },
+        {
+          name: 'PetList',
+          location: { file: 'src/b.ts', line: 3 },
+          node: { type: 'array', items: { type: 'ref', schema: 'Pet' } },
+        },
+      ]),
+      [calls],
     )
     assert.deepEqual(errors, [])
     assert.deepEqual(
@@ -93,8 +126,103 @@ describe('declarationsToContract', () => {
     )
   })
 
+  it('writes an identical derived schema of any type used in several places once', () => {
+    const petOrNull = (file: string): NamedSchema => ({
+      name: 'PetOrNull',
+      location: { file, line: 3 },
+      node: { type: 'ref', schema: 'Pet', nullable: true },
+      derived: true,
+    })
+    const { contract, errors } = declarationsToContract(
+      declarations([pet(1), petOrNull('src/a.ts'), petOrNull('src/b.ts')]),
+      [calls],
+    )
+    assert.deepEqual(errors, [])
+    assert.deepEqual(
+      contract.schemas.map((schema) => schema.name),
+      ['Pet', 'PetOrNull'],
+    )
+  })
+
+  it('writes a derived enum or union declared with its members in another order once, in the first order', () => {
+    const owner: NamedSchema = {
+      name: 'Owner',
+      location: { file: 'src/owner.ts', line: 1 },
+      node: { type: 'object', properties: [] },
+    }
+    const status = (file: string, members: Array<string>): NamedSchema => ({
+      name: 'Status',
+      location: { file, line: 3 },
+      node: { type: 'enum', members },
+      derived: true,
+    })
+    const searchResult = (file: string, keys: Array<string>): NamedSchema => ({
+      name: 'SearchResult',
+      location: { file, line: 5 },
+      node: {
+        type: 'union',
+        members: keys.map((key) => ({
+          key,
+          node: { type: 'ref', schema: key },
+        })),
+      },
+      derived: true,
+    })
+    const { contract, errors } = declarationsToContract(
+      declarations([
+        pet(1),
+        owner,
+        status('src/a.ts', ['SOLD', 'AVAILABLE']),
+        status('src/b.ts', ['AVAILABLE', 'SOLD']),
+        searchResult('src/a.ts', ['Pet', 'Owner']),
+        searchResult('src/b.ts', ['Owner', 'Pet']),
+      ]),
+      [calls],
+    )
+    assert.deepEqual(errors, [])
+    assert.deepEqual(contract.schemas, [
+      pet(1),
+      owner,
+      status('src/a.ts', ['SOLD', 'AVAILABLE']),
+      searchResult('src/a.ts', ['Pet', 'Owner']),
+    ])
+  })
+
+  it('rejects a derived schema that is not a list and equals a declared schema of its name', () => {
+    const node = (): SchemaNode => ({
+      type: 'ref',
+      schema: 'Pet',
+      nullable: true,
+    })
+    const { errors } = declarationsToContract(
+      declarations([
+        pet(1),
+        {
+          name: 'PetOrNull',
+          location: { file: 'src/a.ts', line: 3 },
+          node: node(),
+        },
+        {
+          name: 'PetOrNull',
+          location: { file: 'src/b.ts', line: 3 },
+          node: node(),
+          derived: true,
+        },
+      ]),
+      [calls],
+    )
+    const message =
+      'schema name "PetOrNull" is declared more than once: give each schema a distinct name'
+    assert.deepEqual(errors, [
+      { message, location: { file: 'src/a.ts', line: 3 } },
+      { message, location: { file: 'src/b.ts', line: 3 } },
+    ])
+  })
+
   it('rejects two schemas with the same name at both places', () => {
-    const { errors } = declarationsToContract(declarations([pet(1), pet(8)]))
+    const { errors } = declarationsToContract(declarations([pet(1), pet(8)]), [
+      calls,
+    ])
     const message =
       'schema name "Pet" is declared more than once: give each schema a distinct name'
     assert.deepEqual(errors, [
@@ -123,12 +251,44 @@ describe('declarationsToContract', () => {
         ],
       },
     }
-    const { errors } = declarationsToContract(declarations([schema]))
+    const { errors } = declarationsToContract(declarations([schema]), [calls])
     const message =
       'field "id" is declared more than once in schema "Pet": give each field a distinct name'
     assert.deepEqual(errors, [
       { message, location: { file: 'src/entity.ts', line: 2 } },
       { message, location: { file: 'src/pet.ts', line: 2 } },
+    ])
+  })
+
+  it('rejects two fields with the same name in the properties of a union at both places', () => {
+    const schema: NamedSchema = {
+      name: 'Node',
+      location: { file: 'src/node.ts', line: 1 },
+      node: {
+        type: 'union',
+        properties: [
+          {
+            name: 'id',
+            location: { file: 'src/node.ts', line: 2 },
+            node: { type: 'string' },
+          },
+          {
+            name: 'id',
+            location: { file: 'src/node.ts', line: 4 },
+            node: { type: 'integer' },
+          },
+        ],
+        members: [{ key: 'Pet', node: { type: 'ref', schema: 'Pet' } }],
+      },
+    }
+    const { errors } = declarationsToContract(declarations([schema, pet(6)]), [
+      calls,
+    ])
+    const message =
+      'field "id" is declared more than once in schema "Node": give each field a distinct name'
+    assert.deepEqual(errors, [
+      { message, location: { file: 'src/node.ts', line: 2 } },
+      { message, location: { file: 'src/node.ts', line: 4 } },
     ])
   })
 
@@ -147,6 +307,7 @@ describe('declarationsToContract', () => {
           node: { ...petList, nullable: true },
         },
       ]),
+      [calls],
     )
     const message =
       'lists named "PetList" differ: give each list a distinct name'
@@ -171,6 +332,7 @@ describe('declarationsToContract', () => {
           node: petList,
         },
       ]),
+      [calls],
     )
     const message =
       'list name "PetList" is also the name of another schema: give the list a distinct name'
@@ -180,24 +342,103 @@ describe('declarationsToContract', () => {
     ])
   })
 
-  it('rejects a body that references a name no schema has, at its line', () => {
+  it('merges the blocks of each side of a protocol into one block', () => {
+    const { contract, errors } = declarationsToContract(
+      declarations(
+        [pet(1)],
+        [
+          { block: [call('Pet', 1)] },
+          { provider: 'payments_api', block: [call('Pet', 2)] },
+          { block: [call('Pet', 3)] },
+          { provider: 'auth_api', block: [call('Pet', 4)] },
+          { provider: 'payments_api', block: [call('Pet', 5)] },
+        ],
+      ),
+      [calls],
+    )
+    assert.deepEqual(errors, [])
+    assert.deepEqual(
+      contract.provides,
+      new Map([['calls', [call('Pet', 1), call('Pet', 3)]]]),
+    )
+    assert.deepEqual(
+      contract.consumes,
+      new Map([
+        [
+          'payments_api',
+          new Map([['calls', [call('Pet', 2), call('Pet', 5)]]]),
+        ],
+        ['auth_api', new Map([['calls', [call('Pet', 4)]]])],
+      ]),
+    )
+  })
+
+  it('leaves the blocks of an unregistered protocol out', () => {
+    const { contract, errors } = declarationsToContract(
+      declarations([pet(1)], [{ block: [call('Missing', 1)] }]),
+      [],
+    )
+    assert.deepEqual(errors, [])
+    assert.deepEqual(contract.provides, new Map())
+    assert.deepEqual(contract.consumes, new Map())
+  })
+
+  it('reports the errors of merging the blocks of a protocol', () => {
     const { errors } = declarationsToContract(
-      declarations([pet(1)], [listing('src/a.ts', 'PetResponse')]),
+      declarations(
+        [pet(1)],
+        [{ block: [call('Pet', 1)] }, { block: [call('Conflict', 2)] }],
+      ),
+      [calls],
+    )
+    assert.deepEqual(errors, [
+      callsMergeError,
+      {
+        message:
+          'schema "Conflict" is not declared: reference a schema by its name in the contract',
+        location: { file: 'src/calls.ts', line: 2 },
+      },
+    ])
+  })
+
+  it('rejects a reference of a protocol block to a name no schema has, at its line', () => {
+    const { errors } = declarationsToContract(
+      declarations([pet(1)], [{ block: [call('PetResponse', 3)] }]),
+      [calls],
     )
     assert.deepEqual(errors, [
       {
         message:
           'schema "PetResponse" is not declared: reference a schema by its name in the contract',
-        location: { file: 'src/a.ts', line: 3 },
+        location: { file: 'src/calls.ts', line: 3 },
       },
     ])
   })
 
-  it('accepts a body without a schema', () => {
-    const { errors } = declarationsToContract(
-      declarations([], [listing('src/a.ts', null)]),
-    )
-    assert.deepEqual(errors, [])
+  it('rejects a name the vocabulary of a node references and no schema has, at its line', () => {
+    const ticket: NamedSchema = {
+      name: 'Ticket',
+      location: { file: 'src/ticket.ts', line: 1 },
+      node: {
+        type: 'object',
+        properties: [
+          {
+            name: 'replies',
+            location: { file: 'src/ticket.ts', line: 2 },
+            node: { type: 'string', extra: { arguments: 'ReplyArgs' } },
+            vocabulary: calls.vocabulary,
+          },
+        ],
+      },
+    }
+    const { errors } = declarationsToContract(declarations([ticket]), [calls])
+    assert.deepEqual(errors, [
+      {
+        message:
+          'schema "ReplyArgs" is not declared: reference a schema by its name in the contract',
+        location: { file: 'src/ticket.ts', line: 2 },
+      },
+    ])
   })
 
   it('rejects a reference inside a schema to a name no schema has', () => {
@@ -209,6 +450,7 @@ describe('declarationsToContract', () => {
           node: petList,
         },
       ]),
+      [calls],
     )
     assert.deepEqual(errors, [
       {
@@ -216,6 +458,62 @@ describe('declarationsToContract', () => {
           'schema "Pet" is not declared: reference a schema by its name in the contract',
         location: { file: 'src/a.ts', line: 3 },
       },
+    ])
+  })
+
+  it('rejects a name the properties or the members of a union reference and no schema has, each at its line', () => {
+    const { errors } = declarationsToContract(
+      declarations([
+        {
+          name: 'Node',
+          location: { file: 'src/node.ts', line: 1 },
+          node: {
+            type: 'union',
+            properties: [
+              {
+                name: 'owner',
+                location: { file: 'src/node.ts', line: 2 },
+                node: { type: 'ref', schema: 'Owner' },
+              },
+            ],
+            members: [
+              { key: 'User', node: { type: 'ref', schema: 'UserName' } },
+            ],
+          },
+        },
+      ]),
+      [calls],
+    )
+    assert.deepEqual(errors, [
+      {
+        message:
+          'schema "Owner" is not declared: reference a schema by its name in the contract',
+        location: { file: 'src/node.ts', line: 2 },
+      },
+      {
+        message:
+          'schema "UserName" is not declared: reference a schema by its name in the contract',
+        location: { file: 'src/node.ts', line: 1 },
+      },
+    ])
+  })
+})
+
+describe('contractToProtocolBlocks', () => {
+  it('lists the blocks of the provided side, then of each provider', () => {
+    const { contract } = declarationsToContract(
+      declarations(
+        [pet(1)],
+        [
+          { provider: 'payments_api', block: [call('Pet', 1)] },
+          { block: [call('Pet', 2)] },
+        ],
+      ),
+      [calls],
+    )
+    assert.deepEqual(contractToProtocolBlocks(contract, [calls]), [
+      { protocol: calls, block: [call('Pet', 2)] },
+      { protocol: calls, block: [call('Pet', 1)] },
     ])
   })
 })

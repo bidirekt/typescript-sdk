@@ -1,5 +1,5 @@
 import {
-  BidirektConsumer,
+  BidirektRestConsumer,
   BidirektField,
   BidirektSchema,
 } from '@bidirekt/typescript-sdk'
@@ -15,7 +15,7 @@ export class Pet {
 }
 
 export class PaymentsClient {
-  @BidirektConsumer({
+  @BidirektRestConsumer({
     provider: 'payments_api',
     method: 'POST',
     path: '/charges',

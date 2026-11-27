@@ -7,13 +7,13 @@ export class Pet {
 }
 
 /**
- * @bidirekt provides get /pets/*
+ * @bidirekt rest provides get /pets/*
  * @bidirekt response 200 Pet
  */
 export function findPet() {}
 
 /**
- * @bidirekt consumes payments_api Post /charges
+ * @bidirekt rest consumes payments_api Post /charges
  * @bidirekt response 201
  */
 export function charge() {}

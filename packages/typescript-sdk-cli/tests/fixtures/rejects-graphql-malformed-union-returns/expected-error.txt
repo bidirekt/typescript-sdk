@@ -1,0 +1,5 @@
+clients.ts:23 a union in "returns" needs a name: write { union: {...}, name: '<name>' }
+clients.ts:30 a union in "returns" needs a name: write { union: {...}, name: '<name>' }
+tagged.ts:3 cannot read "union={Pet: Pet, Owner: Owner}" as returns: a union needs a name, write "union={Pet: Pet, Owner: Owner} as <name>"
+tagged.ts:9 cannot read "union={Pet: Pet, Owner: Owner}[]" as returns: a union needs a name, write "union={Pet: Pet, Owner: Owner}[] as <name>"
+tagged.ts:15 cannot read "union={Pet, Owner} as SearchResult" as returns: write "<type>", "<type>?", "<type>[]", "<type>[]?", "<type>?[]" or "<type>?[]?", each with an optional "as <name>", where <type> is a schema, a primitive, scalar:<name>, enum:<A>|<B> or union={<key>: <schema>, ...}

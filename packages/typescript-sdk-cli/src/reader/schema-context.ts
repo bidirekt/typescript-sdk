@@ -36,14 +36,29 @@ export type FormHints = {
   readsDeclarationFiles: boolean
 }
 
+type FieldHints = Pick<
+  FormHints,
+  | 'declareType'
+  | 'declareFieldType'
+  | 'declareUnion'
+  | 'declareName'
+  | 'placeUnion'
+>
+
+export function fieldDecoratorHints(decorator: string): FieldHints {
+  return {
+    declareType: `@${decorator}({ type })`,
+    declareFieldType: `@${decorator}({ type })`,
+    declareUnion: `@${decorator}({ union })`,
+    declareName: `@${decorator}({ name })`,
+    placeUnion: `the "union" of @${decorator}`,
+  }
+}
+
 const decoratorHints: FormHints = {
-  declareType: '@BidirektField({ type })',
-  declareFieldType: '@BidirektField({ type })',
-  declareUnion: '@BidirektField({ union })',
-  declareName: '@BidirektField({ name })',
+  ...fieldDecoratorHints('BidirektField'),
   schemaAnnotation: '@BidirektSchema',
   addSchema: 'add @BidirektSchema to it',
-  placeUnion: 'the "union" of @BidirektField',
   annotateField: '@BidirektField',
   builtDeclaration: 'which has no decorators',
   readsDeclarationFiles: false,

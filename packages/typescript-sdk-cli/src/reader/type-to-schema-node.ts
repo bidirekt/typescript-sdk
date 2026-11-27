@@ -57,6 +57,8 @@ type Reference = ts.TypeReferenceNode | ts.ImportTypeNode
 
 const boxedPrimitives = ['String', 'Number', 'Boolean']
 
+const listNames = ['Array', 'ReadonlyArray']
+
 function startWalk(union: SchemaNode | undefined): Walk {
   return { expanding: new Set(), bindings: new Map(), union }
 }
@@ -218,6 +220,88 @@ function walkToTranslatedType(
   return { node, optional: parts.optional || translated.optional }
 }
 
+export function typeNodeToShapedLeaf(
+  typeNode: ts.TypeNode,
+  leaf: SchemaNode,
+  context: SchemaContext,
+): TranslatedType | Diagnostic {
+  return walkToShapedLeaf(typeNode, leaf, context, startWalk(undefined))
+}
+
+function walkToShapedLeaf(
+  typeNode: ts.TypeNode,
+  leaf: SchemaNode,
+  context: SchemaContext,
+  walk: Walk,
+): TranslatedType | Diagnostic {
+  const parts = typeNodeToParts(typeNode)
+  let shaped: TranslatedType | Diagnostic = { node: leaf, optional: false }
+  if (parts.members.length === 1) {
+    shaped = memberToShapedLeaf(parts.members[0], leaf, context, walk)
+  }
+  if (isDiagnostic(shaped)) {
+    return shaped
+  }
+  const flags = walkToFlags(typeNode, context, walk)
+  let node = shaped.node
+  if (flags.nullable) {
+    node = { ...node, nullable: true }
+  }
+  return { node, optional: flags.optional || shaped.optional }
+}
+
+function memberToShapedLeaf(
+  member: ts.TypeNode,
+  leaf: SchemaNode,
+  context: SchemaContext,
+  walk: Walk,
+): TranslatedType | Diagnostic {
+  const items = memberToListItems(member, context)
+  if (items !== undefined) {
+    const node = translatedToNestedNode(
+      walkToShapedLeaf(items, leaf, context, walk),
+      items,
+      context,
+    )
+    if (isDiagnostic(node)) {
+      return node
+    }
+    return { node: { type: 'array', items: node }, optional: false }
+  }
+  const followed = memberToFollowed(member, context, walk)
+  if (followed !== undefined) {
+    return walkToShapedLeaf(followed.typeNode, leaf, context, followed.walk)
+  }
+  return { node: leaf, optional: false }
+}
+
+function memberToListItems(
+  member: ts.TypeNode,
+  context: SchemaContext,
+): ts.TypeNode | undefined {
+  if (ts.isArrayTypeNode(member)) {
+    return member.elementType
+  }
+  if (
+    ts.isTypeOperatorNode(member) &&
+    member.operator === ts.SyntaxKind.ReadonlyKeyword
+  ) {
+    return memberToListItems(member.type, context)
+  }
+  if (!isReference(member) || member.typeArguments?.length !== 1) {
+    return undefined
+  }
+  const symbol = referenceToSymbol(member, context)
+  if (
+    symbol === undefined ||
+    !isLibrarySymbol(symbol, context) ||
+    !listNames.includes(symbol.name)
+  ) {
+    return undefined
+  }
+  return member.typeArguments[0]
+}
+
 function typeNodeToParts(typeNode: ts.TypeNode): TypeParts {
   const parts: TypeParts = { members: [], nullable: false, optional: false }
   const add = (node: ts.TypeNode): void => {
@@ -255,12 +339,11 @@ function typeNodeToParts(typeNode: ts.TypeNode): TypeParts {
   return parts
 }
 
-function typeNodeToNestedNode(
+function translatedToNestedNode(
+  translated: TranslatedType | Diagnostic,
   typeNode: ts.TypeNode,
   context: SchemaContext,
-  walk: Walk,
 ): SchemaNode | Diagnostic {
-  const translated = walkToTranslatedType(typeNode, context, walk)
   if (isDiagnostic(translated)) {
     return translated
   }
@@ -335,8 +418,9 @@ function memberToTranslatedType(
   if (isNumericLiteralType(member)) {
     return { message: numericLiteralMessage(member.getText(), context.hints) }
   }
-  if (ts.isArrayTypeNode(member)) {
-    return arrayToTranslatedType(member.elementType, context, walk)
+  const items = memberToListItems(member, context)
+  if (items !== undefined) {
+    return arrayToTranslatedType(items, context, walk)
   }
   if (
     ts.isTypeOperatorNode(member) &&
@@ -433,12 +517,6 @@ function libraryReferenceToTranslatedType(
   context: SchemaContext,
   walk: Walk,
 ): TranslatedType | Diagnostic {
-  if (
-    (name === 'Array' || name === 'ReadonlyArray') &&
-    typeArguments.length === 1
-  ) {
-    return arrayToTranslatedType(typeArguments[0], context, walk)
-  }
   if ((name === 'Record' || name === 'Object') && typeArguments.length === 2) {
     const [key, values] = typeArguments
     if (!isStringType(key, context)) {
@@ -463,7 +541,11 @@ function arrayToTranslatedType(
   context: SchemaContext,
   walk: Walk,
 ): TranslatedType | Diagnostic {
-  const node = typeNodeToNestedNode(items, context, walk)
+  const node = translatedToNestedNode(
+    walkToTranslatedType(items, context, walk),
+    items,
+    context,
+  )
   if (isDiagnostic(node)) {
     return node
   }
@@ -475,7 +557,11 @@ function mapToTranslatedType(
   context: SchemaContext,
   walk: Walk,
 ): TranslatedType | Diagnostic {
-  const node = typeNodeToNestedNode(values, context, walk)
+  const node = translatedToNestedNode(
+    walkToTranslatedType(values, context, walk),
+    values,
+    context,
+  )
   if (isDiagnostic(node)) {
     return node
   }

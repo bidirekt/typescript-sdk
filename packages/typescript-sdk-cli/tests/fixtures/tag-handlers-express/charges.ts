@@ -2,7 +2,7 @@ import { http } from './http.ts'
 import type { Charge, NewCharge } from './schemas.ts'
 
 /**
- * @bidirekt consumes payments_api POST /charges
+ * @bidirekt rest consumes payments_api POST /charges
  * @bidirekt request NewCharge
  * @bidirekt response 201 Charge
  */

@@ -1,2 +1,2 @@
-pets.ts:3 a handler is declared more than once on this element: keep one "@bidirekt provides" or "@bidirekt consumes" comment
-pets.ts:11 a handler is declared more than once on this element: keep one "@bidirekt provides" or "@bidirekt consumes" comment
+pets.ts:3 a handler is declared more than once on this element: keep one "@bidirekt rest" or "@bidirekt graphql" comment
+pets.ts:11 a handler is declared more than once on this element: keep one "@bidirekt rest" or "@bidirekt graphql" comment

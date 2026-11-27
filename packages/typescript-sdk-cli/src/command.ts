@@ -1,8 +1,12 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
-import type { Contract } from './model/contract.ts'
+import { compareLocations } from './model/contract.ts'
+import type { SourceLocation } from './model/contract.ts'
+import { contractToProtocolBlocks } from './model/declarations-to-contract.ts'
 import type { Diagnostic } from './model/diagnostic.ts'
+import { defaultProtocols } from './protocols.ts'
+import type { Contract, ProtocolModule } from './protocols.ts'
 import { pathToShown } from './reader/location.ts'
 import { projectToContract } from './reader/project-to-contract.ts'
 import type { Project } from './reader/project-to-contract.ts'
@@ -18,18 +22,24 @@ const usage =
 
 const defaultOutput = join('contracts', 'generated.yaml')
 
+const noLocation: SourceLocation = { file: '', line: 0 }
+
 type GenerateOptions = {
   check: boolean
   project?: string
   out?: string
 }
 
-export function runCommand(args: Array<string>, cwd: string): CommandResult {
+export function runCommand(
+  args: Array<string>,
+  cwd: string,
+  protocols: ReadonlyArray<ProtocolModule> = defaultProtocols,
+): CommandResult {
   const options = argsToGenerateOptions(args)
   if (options === undefined) {
     return { exitCode: 1, stderr: usage }
   }
-  return generate(options, cwd)
+  return generate(options, cwd, protocols)
 }
 
 function argsToGenerateOptions(
@@ -54,14 +64,18 @@ function argsToGenerateOptions(
   }
 }
 
-function generate(options: GenerateOptions, cwd: string): CommandResult {
+function generate(
+  options: GenerateOptions,
+  cwd: string,
+  protocols: ReadonlyArray<ProtocolModule>,
+): CommandResult {
   const located = locateProject(options, cwd)
   if ('message' in located) {
     return { exitCode: 1, stderr: `${located.message}\n` }
   }
   const { project, source, directory } = located
   const output = resolve(cwd, options.out ?? join(directory, defaultOutput))
-  const read = projectToContract(project, cwd)
+  const read = projectToContract(project, cwd, protocols)
   const diagnostics = [
     ...read.errors.map((error) => ({ ...error, prefix: '' })),
     ...read.warnings.map((warning) => ({ ...warning, prefix: 'warning: ' })),
@@ -72,12 +86,12 @@ function generate(options: GenerateOptions, cwd: string): CommandResult {
   if (read.errors.length > 0) {
     return failure(diagnostics)
   }
-  if (isEmpty(read.contract)) {
+  if (isEmpty(read.contract, protocols)) {
     return failure(
       `${diagnostics}no @bidirekt/typescript-sdk annotation found in "${source}": nothing to generate\n`,
     )
   }
-  const yaml = contractToYaml(read.contract)
+  const yaml = contractToYaml(read.contract, protocols)
   const shownOutput = pathToShown(output, cwd)
   if (options.check) {
     if (!existsSync(output)) {
@@ -148,8 +162,16 @@ function configFileToLocatedProject(
   }
 }
 
-function isEmpty({ provides, consumes, schemas }: Contract): boolean {
-  return provides.length + consumes.length + schemas.length === 0
+function isEmpty(
+  contract: Contract,
+  protocols: ReadonlyArray<ProtocolModule>,
+): boolean {
+  return (
+    contract.schemas.length === 0 &&
+    contractToProtocolBlocks(contract, protocols).every(({ protocol, block }) =>
+      protocol.isEmpty(block),
+    )
+  )
 }
 
 function failure(stderr: string): CommandResult {
@@ -164,14 +186,7 @@ function errorToReason(error: unknown): string {
 }
 
 function compareDiagnostics(a: Diagnostic, b: Diagnostic): number {
-  const fileOrder = Buffer.compare(
-    Buffer.from(a.location?.file ?? ''),
-    Buffer.from(b.location?.file ?? ''),
-  )
-  if (fileOrder !== 0) {
-    return fileOrder
-  }
-  return (a.location?.line ?? 0) - (b.location?.line ?? 0)
+  return compareLocations(a.location ?? noLocation, b.location ?? noLocation)
 }
 
 function diagnosticToLine(

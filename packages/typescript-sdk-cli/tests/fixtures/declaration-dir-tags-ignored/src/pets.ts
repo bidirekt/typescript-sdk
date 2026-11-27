@@ -5,7 +5,7 @@ export enum Status {
 }
 
 /**
- * @bidirekt provides GET /pets/*
+ * @bidirekt rest provides GET /pets/*
  * @bidirekt response 200 PetStatus
  * @bidirekt response 404
  */
@@ -14,7 +14,7 @@ export function findPet(): Status {
 }
 
 /**
- * @bidirekt consumes payments_api POST /charges
+ * @bidirekt rest consumes payments_api POST /charges
  * @bidirekt response 201
  */
 export const createCharge = async (): Promise<void> => {}

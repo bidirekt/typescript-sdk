@@ -3,16 +3,24 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { after, describe, it } from 'node:test'
-import type * as sdk from '@bidirekt/typescript-sdk'
+import * as runtime from '@bidirekt/typescript-sdk'
+import { defaultProtocols } from '../../src/protocols.ts'
+import type { ProtocolModule } from '../../src/protocols.ts'
 import { projectToProgram } from '../../src/reader/program.ts'
-import { programToSdkReferences } from '../../src/reader/sdk-references.ts'
-import type { SdkExportName } from '../../src/reader/sdk-references.ts'
+import {
+  programToSdkReferences,
+  protocolsToDecoratorTargets,
+} from '../../src/reader/sdk-references.ts'
 
 const root = mkdtempSync(join(tmpdir(), 'reader-references-'))
 
 after(() => rmSync(root, { recursive: true, force: true }))
 
-function referencesOf(name: string, files: Record<string, string>) {
+function referencesOf(
+  name: string,
+  files: Record<string, string>,
+  protocols: ReadonlyArray<ProtocolModule> = defaultProtocols,
+) {
   const directory = join(root, name)
   for (const [path, content] of Object.entries(files)) {
     mkdirSync(dirname(join(directory, path)), { recursive: true })
@@ -22,7 +30,7 @@ function referencesOf(name: string, files: Record<string, string>) {
   if ('message' in projectProgram) {
     assert.fail(`unexpected diagnostic: ${projectProgram.message}`)
   }
-  return programToSdkReferences(projectProgram).map((reference) => ({
+  return programToSdkReferences(projectProgram, protocols).map((reference) => ({
     name: reference.name,
     file: reference.location.file.slice(directory.length + 1),
     line: reference.location.line,
@@ -30,17 +38,11 @@ function referencesOf(name: string, files: Record<string, string>) {
   }))
 }
 
-type IsSameUnion<TActual, TExpected> = [TActual] extends [TExpected]
-  ? [TExpected] extends [TActual]
-    ? true
-    : false
-  : false
-
 describe('programToSdkReferences', () => {
-  it('names exactly the exports of the runtime', () => {
-    const sameNames: IsSameUnion<SdkExportName, keyof typeof sdk> = true
+  it('names exactly the exports of the runtime with the registered protocols', () => {
+    const names = [...protocolsToDecoratorTargets(defaultProtocols).keys()]
 
-    assert.equal(sameNames, true)
+    assert.deepEqual(names.sort(), Object.keys(runtime).sort())
   })
 
   it('recognizes a named import used as a decorator', () => {
@@ -274,6 +276,38 @@ describe('programToSdkReferences', () => {
         file: 'pet.ts',
         line: 7,
         use: 'decorator',
+      },
+    ])
+  })
+
+  it('reports a decorator of a protocol that is not registered', () => {
+    const source = [
+      "import { BidirektRestProvider } from '@bidirekt/typescript-sdk'",
+      '',
+      'export class PetsController {',
+      "  @BidirektRestProvider({ method: 'GET', path: '/pets', responses: {} })",
+      '  list() {}',
+      '}',
+      '',
+    ].join('\n')
+
+    const registered = referencesOf('registered', { 'pets.ts': source })
+    const unregistered = referencesOf('unregistered', { 'pets.ts': source }, [])
+
+    assert.deepEqual(registered, [
+      {
+        name: 'BidirektRestProvider',
+        file: 'pets.ts',
+        line: 4,
+        use: 'decorator',
+      },
+    ])
+    assert.deepEqual(unregistered, [
+      {
+        name: 'BidirektRestProvider',
+        file: 'pets.ts',
+        line: 4,
+        use: 'unregistered',
       },
     ])
   })

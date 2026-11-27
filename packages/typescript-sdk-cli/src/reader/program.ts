@@ -10,7 +10,7 @@ export type ProjectProgram = {
   sdkEntry: string
 }
 
-const sdkPackage = '@bidirekt/typescript-sdk'
+export const sdkPackage = '@bidirekt/typescript-sdk'
 
 const forcedOptions = {
   noEmit: true,

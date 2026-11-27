@@ -1,2 +1,2 @@
-pets.ts:14 warning: "@bidirekt provides" is inside an @example, so it is not read: move it above the @example
+pets.ts:14 warning: "@bidirekt rest" is inside an @example, so it is not read: move it above the @example
 pets.ts:15 warning: "@bidirekt response" is inside an @example, so it is not read: move it above the @example

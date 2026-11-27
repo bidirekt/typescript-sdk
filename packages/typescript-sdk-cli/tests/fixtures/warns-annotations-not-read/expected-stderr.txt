@@ -1,4 +1,4 @@
-pets.ts:12 warning: @BidirektProvider is on a property, so it is not read: put it on a method
+pets.ts:12 warning: @BidirektRestProvider is on a property, so it is not read: put it on a method
 pets.ts:15 warning: @BidirektField is not called, so it is not read: write @BidirektField()
 pets.ts:20 warning: @BidirektField is on a method, so it is not read: put it on a property
 pets.ts:23 warning: @BidirektSchema is on a method, so it is not read: put it on a class declaration

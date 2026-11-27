@@ -1,7 +1,7 @@
 import {
-  BidirektConsumer,
+  BidirektRestConsumer,
   BidirektField,
-  BidirektProvider,
+  BidirektRestProvider,
   BidirektSchema,
 } from '@bidirekt/typescript-sdk'
 
@@ -16,22 +16,22 @@ const listMethod = 'GET'
 const createResponses = { 201: Pet }
 
 export class PetsController {
-  @BidirektProvider(findOptions)
+  @BidirektRestProvider(findOptions)
   find() {}
 
-  @BidirektProvider({ method: listMethod, path: '/pets', responses: { 200: Pet } })
+  @BidirektRestProvider({ method: listMethod, path: '/pets', responses: { 200: Pet } })
   list() {}
 
-  @BidirektProvider({ method: 'POST', path: '/pets', responses: createResponses })
+  @BidirektRestProvider({ method: 'POST', path: '/pets', responses: createResponses })
   create() {}
 
   // @ts-expect-error the status is not a number on purpose
-  @BidirektProvider({ method: 'DELETE', path: '/pets/*', responses: { gone: null } })
+  @BidirektRestProvider({ method: 'DELETE', path: '/pets/*', responses: { gone: null } })
   remove() {}
 }
 
 export class ShelterClient {
   // @ts-expect-error the provider is left out on purpose
-  @BidirektConsumer({ method: 'GET', path: '/residents', responses: { 200: Pet } })
+  @BidirektRestConsumer({ method: 'GET', path: '/residents', responses: { 200: Pet } })
   residents() {}
 }

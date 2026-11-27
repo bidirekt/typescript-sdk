@@ -22,6 +22,7 @@ export function expressionToLiteralOptions(
   what: string,
   known?: ReadonlyArray<string>,
   computedKeyToMessage?: (key: ts.ComputedPropertyName) => string,
+  unknownToHint?: (name: string) => string | undefined,
 ): LiteralOptions | Diagnostic {
   const options: LiteralOptions = new Map()
   if (expression === undefined) {
@@ -53,7 +54,7 @@ export function expressionToLiteralOptions(
     }
     if (known !== undefined && !known.includes(name)) {
       return {
-        message: `unknown option "${name}" in ${what}: write ${namesToChoice(known)}`,
+        message: `unknown option "${name}" in ${what}: write ${namesToChoice(known)}${hintToSuffix(unknownToHint?.(name))}`,
         location: nodeToLocation(property.name),
       }
     }
@@ -77,6 +78,13 @@ export function computedKeyToValue(
     return String(type.value)
   }
   return undefined
+}
+
+export function hintToSuffix(hint: string | undefined): string {
+  if (hint === undefined) {
+    return ''
+  }
+  return `; ${hint}`
 }
 
 export function namesToChoice(names: ReadonlyArray<string>): string {

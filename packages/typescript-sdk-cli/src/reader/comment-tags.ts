@@ -1,28 +1,29 @@
 import ts from 'typescript'
 import type { SourceLocation } from '../model/contract.ts'
 import type { Diagnostic } from '../model/diagnostic.ts'
+import type { ProtocolModule } from '../protocols.ts'
 import { namesToChoice } from './literal-options.ts'
 import { nodeToLocation } from './location.ts'
 import { programToUserFiles } from './program.ts'
 import type { ProjectProgram } from './program.ts'
 import { isObjectDeclaration, memberToOwner } from './schema-context.ts'
-import { isSdkExportName } from './sdk-references.ts'
-
-export type TagKeyword =
-  'provides' | 'consumes' | 'request' | 'response' | 'schema' | 'field'
+import { protocolsToDecoratorTargets } from './sdk-references.ts'
 
 export type CommentTag = {
-  keyword: TagKeyword
+  keyword: string
+  protocol?: string
+  vocabulary?: string
   arguments: Array<string>
   location: SourceLocation
   error?: Diagnostic
 }
 
-export type HandlerTag = CommentTag & { keyword: 'provides' | 'consumes' }
+export type HandlerTag = CommentTag & { protocol: string }
 
 export type TaggedComment = {
   element: ts.Node
   tags: Array<CommentTag>
+  hasUnknownTag?: boolean
 }
 
 export type TagOption = {
@@ -48,16 +49,18 @@ const quotedValuePattern = /^"[^"]*"$/
 
 const quotedDescriptionPattern = /^description="[^"]*"$/
 
-const keywords: Array<TagKeyword> = [
-  'provides',
-  'consumes',
-  'request',
-  'response',
-  'schema',
-  'field',
-]
+const coreKeywords = ['schema', 'field']
 
-const keywordList = namesToChoice(keywords)
+const vocabularyKeyword = 'field'
+
+type TagWords = {
+  keywords: ReadonlyArray<string>
+  keywordChoice: string
+  owners: ReadonlyMap<string, string>
+  renamed: ReadonlyMap<string, string>
+  vocabularies: ReadonlySet<string>
+  decorators: ReadonlySet<string>
+}
 
 type Span = {
   start: number
@@ -72,14 +75,16 @@ type Mention = {
 
 export function programToTaggedComments(
   projectProgram: ProjectProgram,
+  protocols: ReadonlyArray<ProtocolModule>,
 ): ReadComments {
   projectProgram.program.getTypeChecker()
+  const words = protocolsToTagWords(protocols)
   const read: ReadComments = { comments: [], errors: [], warnings: [] }
   for (const file of programToUserFiles(projectProgram)) {
     if (!taggedCommentPattern.test(file.text)) {
       continue
     }
-    const fileRead = fileToTaggedComments(file)
+    const fileRead = fileToTaggedComments(file, words)
     if (file.isDeclarationFile) {
       read.comments.push(...fileRead.comments.flatMap(typeDeclarationComment))
       continue
@@ -91,7 +96,33 @@ export function programToTaggedComments(
   return read
 }
 
-function fileToTaggedComments(file: ts.SourceFile): ReadComments {
+function protocolsToTagWords(
+  protocols: ReadonlyArray<ProtocolModule>,
+): TagWords {
+  const owned = protocols.flatMap(({ name, tagKeywords }) =>
+    [name, ...tagKeywords].map((keyword): [string, string] => [keyword, name]),
+  )
+  const keywords = [...owned.map(([keyword]) => keyword), ...coreKeywords]
+  return {
+    keywords,
+    keywordChoice: namesToChoice(keywords),
+    owners: new Map(owned),
+    renamed: new Map(
+      protocols.flatMap(({ renamedTags }) => Object.entries(renamedTags ?? {})),
+    ),
+    vocabularies: new Set(
+      protocols
+        .filter(({ vocabulary }) => vocabulary !== undefined)
+        .map(({ name }) => name),
+    ),
+    decorators: new Set(protocolsToDecoratorTargets(protocols).keys()),
+  }
+}
+
+function fileToTaggedComments(
+  file: ts.SourceFile,
+  words: TagWords,
+): ReadComments {
   const read: ReadComments = { comments: [], errors: [], warnings: [] }
   const attached = new Set<number>()
   const comments = new Map<number, ts.CommentRange>()
@@ -110,7 +141,7 @@ function fileToTaggedComments(file: ts.SourceFile): ReadComments {
       if (ts.isJSDoc(child)) {
         if (!attached.has(child.pos)) {
           attached.add(child.pos)
-          readComment(child, node, read)
+          readComment(child, node, read, words)
         }
         continue
       }
@@ -129,7 +160,7 @@ function fileToTaggedComments(file: ts.SourceFile): ReadComments {
   }
   for (const range of comments.values()) {
     if (!attached.has(range.pos) && !isInside(jsxTexts, range.pos)) {
-      warnUnreadComment(file, range, read)
+      warnUnreadComment(file, range, read, words)
     }
   }
   return read
@@ -157,11 +188,18 @@ function isTypeDeclarationPart(element: ts.Node): boolean {
 }
 
 export function isHandlerTag(tag: CommentTag): tag is HandlerTag {
-  return tag.keyword === 'provides' || tag.keyword === 'consumes'
+  return tag.protocol !== undefined && tag.keyword === tag.protocol
 }
 
 export function tagToText(tag: CommentTag): string {
-  return [`@${tagName}`, tag.keyword, ...tag.arguments].join(' ')
+  return [tagToLabel(tag), ...tag.arguments].join(' ')
+}
+
+export function tagToLabel(tag: CommentTag): string {
+  if (tag.vocabulary === undefined) {
+    return `@${tagName} ${tag.keyword}`
+  }
+  return `@${tagName} ${tag.vocabulary} ${tag.keyword}`
 }
 
 export function argumentToOption(argument: string): TagOption | undefined {
@@ -181,11 +219,13 @@ function readComment(
   comment: ts.JSDoc,
   element: ts.Node,
   read: ReadComments,
+  words: TagWords,
 ): void {
   const file = comment.getSourceFile()
   const fences = commentToFences(file, comment)
   const examples: Array<Span> = []
   const tags: Array<CommentTag> = []
+  let hasUnknownTag = false
   let exampleStart: number | undefined
   for (const tag of comment.tags ?? []) {
     if (isInside(fences, tag.pos) || !startsItsLine(file, comment, tag.pos)) {
@@ -207,7 +247,7 @@ function readComment(
       continue
     }
     const written = tagToWritten(tag)
-    if (namesPackageOrDecorator(written)) {
+    if (namesPackageOrDecorator(written, words)) {
       continue
     }
     if (name !== tagName || !isFollowedBySpace(tag)) {
@@ -218,19 +258,40 @@ function readComment(
       continue
     }
     const location = nodeToLocation(tag)
-    const words = textToArguments(tagToComment(tag))
-    const [keyword, ...rest] = words
-    const known = keywords.find((candidate) => candidate === keyword)
-    if (known !== undefined) {
-      tags.push(argumentsToTag(known, rest, location))
-    } else if (words.length === 0) {
+    const tagArguments = textToArguments(tagToComment(tag))
+    const [keyword, ...remaining] = tagArguments
+    const [vocabularyField, ...fieldArguments] = remaining
+    if (
+      words.vocabularies.has(keyword) &&
+      vocabularyField === vocabularyKeyword
+    ) {
+      tags.push(
+        argumentsToTag(
+          vocabularyKeyword,
+          { vocabulary: keyword },
+          fieldArguments,
+          location,
+        ),
+      )
+    } else if (words.keywords.includes(keyword)) {
+      tags.push(
+        argumentsToTag(
+          keyword,
+          keywordToOwner(keyword, words),
+          remaining,
+          location,
+        ),
+      )
+    } else if (tagArguments.length === 0) {
+      hasUnknownTag = true
       read.errors.push({
-        message: `"@${tagName}" needs a keyword: use ${keywordList}`,
+        message: `"@${tagName}" needs a keyword: use ${words.keywordChoice}`,
         location,
       })
     } else {
+      hasUnknownTag = true
       read.errors.push({
-        message: `unknown tag "@${tagName} ${keyword}": use ${keywordList}`,
+        message: unknownKeywordToMessage(keyword, words),
         location,
       })
     }
@@ -238,7 +299,7 @@ function readComment(
   if (exampleStart !== undefined) {
     examples.push({ start: exampleStart, end: comment.end })
   }
-  warnSkippedTags(file, comment, fences, examples, read)
+  warnSkippedTags(file, comment, fences, examples, read, words)
   if (tags.length > 0) {
     const typedef = comment.tags?.find(
       (tag) => ts.isJSDocTypedefTag(tag) || ts.isJSDocCallbackTag(tag),
@@ -251,8 +312,16 @@ function readComment(
     ) {
       target = typedef
     }
-    read.comments.push({ element: target, tags })
+    read.comments.push({ element: target, tags, hasUnknownTag })
   }
+}
+
+function unknownKeywordToMessage(keyword: string, words: TagWords): string {
+  const renamed = words.renamed.get(keyword)
+  if (renamed === undefined) {
+    return `unknown tag "@${tagName} ${keyword}": use ${words.keywordChoice}`
+  }
+  return `unknown tag "@${tagName} ${keyword}": write "@${tagName} ${renamed}"`
 }
 
 function warnSkippedTags(
@@ -261,6 +330,7 @@ function warnSkippedTags(
   fences: Array<Span>,
   examples: Array<Span>,
   read: ReadComments,
+  words: TagWords,
 ): void {
   for (const mention of commentToMentions(file, comment)) {
     if (
@@ -270,7 +340,7 @@ function warnSkippedTags(
       continue
     }
     const atLineStart = startsItsLine(file, comment, mention.position)
-    const isKeyword = keywords.some((keyword) => keyword === mention.next)
+    const isKeyword = words.keywords.includes(mention.next)
     const shown = [mention.written, mention.next].join(' ').trim()
     const { line } = file.getLineAndCharacterOfPosition(mention.position)
     const location = { file: file.fileName, line: line + 1 }
@@ -335,12 +405,29 @@ function startsItsLine(
   return /^\s*(\/\*\*)?\s*\**\s*$/.test(file.text.slice(lineStart, position))
 }
 
+function keywordToOwner(
+  keyword: string,
+  words: TagWords,
+): Pick<CommentTag, 'protocol'> {
+  const protocol = words.owners.get(keyword)
+  if (protocol === undefined) {
+    return {}
+  }
+  return { protocol }
+}
+
 function argumentsToTag(
-  keyword: TagKeyword,
+  keyword: string,
+  owner: Pick<CommentTag, 'protocol' | 'vocabulary'>,
   tagArguments: Array<string>,
   location: SourceLocation,
 ): CommentTag {
-  const tag: CommentTag = { keyword, arguments: tagArguments, location }
+  const tag: CommentTag = {
+    keyword,
+    ...owner,
+    arguments: tagArguments,
+    location,
+  }
   if (
     tagArguments.some(
       (argument) =>
@@ -370,9 +457,9 @@ function isFollowedBySpace(tag: ts.JSDocTag): boolean {
   return next === '' || /[\s*]/.test(next)
 }
 
-function namesPackageOrDecorator(written: string): boolean {
+function namesPackageOrDecorator(written: string, words: TagWords): boolean {
   const [name] = written.slice(1).split(/[^\w$]/)
-  return written.startsWith(`@${tagName}/`) || isSdkExportName(name)
+  return written.startsWith(`@${tagName}/`) || words.decorators.has(name)
 }
 
 function tagToWritten(tag: ts.JSDocTag): string {
@@ -400,6 +487,7 @@ function warnUnreadComment(
   file: ts.SourceFile,
   range: ts.CommentRange,
   read: ReadComments,
+  words: TagWords,
 ): void {
   if (!file.text.startsWith('/**', range.pos)) {
     return
@@ -409,7 +497,7 @@ function warnUnreadComment(
     ({ position, written }) =>
       startsItsLine(file, range, position) &&
       !isInside(fences, position) &&
-      !namesPackageOrDecorator(written),
+      !namesPackageOrDecorator(written, words),
   )
   if (tag === undefined) {
     return

@@ -1,0 +1,5 @@
+clients.ts:3 Int is GraphQL's name: write integer
+clients.ts:9 Float is GraphQL's name: write float
+clients.ts:15 Boolean is GraphQL's name: write boolean
+clients.ts:21 String is GraphQL's name: write string
+clients.ts:27 ID is GraphQL's name: write string

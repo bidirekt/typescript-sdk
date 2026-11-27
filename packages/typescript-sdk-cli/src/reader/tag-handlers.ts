@@ -1,39 +1,27 @@
 import type ts from 'typescript'
 import type {
-  Body,
   NamedSchema,
   Property,
-  Response,
   SourceLocation,
 } from '../model/contract.ts'
 import { isDiagnostic } from '../model/diagnostic.ts'
 import type { Diagnostic } from '../model/diagnostic.ts'
-import { listToNamedSchema } from '../model/schema-names.ts'
+import type { ProtocolModule } from '../protocols.ts'
 import { isHandlerTag, tagToText } from './comment-tags.ts'
-import type { CommentTag, HandlerTag, TaggedComment } from './comment-tags.ts'
+import type { CommentTag, TaggedComment } from './comment-tags.ts'
+import { namesToChoice } from './literal-options.ts'
 import {
-  declaredToRead,
-  isHandlerDecorator,
-  methodToUppercaseDiagnostic,
-  statusToNumberDiagnostic,
-} from './handler-methods.ts'
-import type { ReadResources } from './handler-methods.ts'
-import { fieldOptionsToNode } from './schema-classes.ts'
-import type { SdkReference } from './sdk-references.ts'
+  fieldOptionsToLeaf,
+  fieldOptionsToProperty,
+  withLeaf,
+} from './schema-classes.ts'
+import type { SdkDecorator } from './sdk-references.ts'
 import { argumentsToOptions, blockFieldKeys } from './tag-schemas.ts'
 
-type Endpoint = {
-  provider?: string
-  method: string
-  path: string
-}
-
-const endpointForms = {
-  provides: { usage: '@bidirekt provides <METHOD> <path>', arguments: 2 },
-  consumes: {
-    usage: '@bidirekt consumes <provider> <METHOD> <path>',
-    arguments: 3,
-  },
+export type HandlerComments = {
+  comments: Map<string, Array<TaggedComment>>
+  schemas: Array<NamedSchema>
+  errors: Array<Diagnostic>
 }
 
 type BlockFields = {
@@ -47,42 +35,35 @@ type BlockSchema = {
   fields: BlockFields
 }
 
-const bodyPattern = /^([^\s[\]]+)(?:\[\](?: as [^\s[\]]+)?)?$/
-
-export function taggedCommentsToResources(
+export function taggedCommentsToHandlerComments(
   comments: Array<TaggedComment>,
-  references: Array<SdkReference>,
-): ReadResources {
-  const read: ReadResources = {
-    provides: [],
-    consumes: [],
+  decorators: Array<SdkDecorator>,
+  protocols: ReadonlyArray<ProtocolModule>,
+): HandlerComments {
+  const read: HandlerComments = {
+    comments: new Map(),
     schemas: [],
     errors: [],
   }
   const decorated = Map.groupBy(
-    references.filter(isHandlerDecorator),
+    decorators,
     (reference): ts.Node => reference.decorator.parent,
   )
   const handled = new Set<ts.Node>()
   for (const { element, tags } of comments) {
     const handlers = tags.filter(isHandlerTag)
-    const bodies = tags.filter(
-      ({ keyword }) => keyword === 'request' || keyword === 'response',
+    const protocolTags = tags.filter(
+      (tag) => tag.protocol !== undefined && !isHandlerTag(tag),
     )
     if (handlers.length === 0) {
-      read.errors.push(
-        ...bodies.map((tag) => ({
-          message: `"@bidirekt ${tag.keyword}" needs a "@bidirekt provides" or "@bidirekt consumes" tag in the same comment`,
-          location: tag.location,
-        })),
-      )
+      tagsToProtocolComments(element, protocolTags, read)
       continue
     }
     const [handler, ...extra] = handlers
     if (handled.has(element)) {
+      const handlerTags = protocols.map(({ name }) => `"@bidirekt ${name}"`)
       read.errors.push({
-        message:
-          'a handler is declared more than once on this element: keep one "@bidirekt provides" or "@bidirekt consumes" comment',
+        message: `a handler is declared more than once on this element: keep one ${namesToChoice(handlerTags)} comment`,
         location: handler.location,
       })
       continue
@@ -94,10 +75,10 @@ export function taggedCommentsToResources(
         location: tag.location,
       })),
     )
-    const decorators = decorated.get(element) ?? []
-    if (decorators.length > 0) {
+    const onElement = decorated.get(element) ?? []
+    if (onElement.length > 0) {
       read.errors.push(
-        ...decorators.flatMap(({ name, location }) => {
+        ...onElement.flatMap(({ name, location }) => {
           const message = `@${name} and "${tagToText(handler)}" are both on this handler: keep one`
           return [
             { message, location },
@@ -107,15 +88,31 @@ export function taggedCommentsToResources(
       )
       continue
     }
-    tagsToResource(handler, bodies, read)
-    read.schemas.push(...tagsToBlockSchemas(tags, read.errors))
+    tagsToProtocolComments(element, [handler, ...protocolTags], read)
+    read.schemas.push(...tagsToBlockSchemas(tags, read.errors, protocols))
   }
   return read
+}
+
+function tagsToProtocolComments(
+  element: ts.Node,
+  tags: Array<CommentTag>,
+  read: HandlerComments,
+): void {
+  for (const [protocol, own] of Map.groupBy(tags, (tag) => tag.protocol)) {
+    if (protocol === undefined) {
+      continue
+    }
+    const comments = read.comments.get(protocol) ?? []
+    comments.push({ element, tags: own })
+    read.comments.set(protocol, comments)
+  }
 }
 
 function tagsToBlockSchemas(
   tags: Array<CommentTag>,
   errors: Array<Diagnostic>,
+  protocols: ReadonlyArray<ProtocolModule>,
 ): Array<NamedSchema> {
   const blocks: Array<BlockSchema> = []
   let fields: BlockFields | undefined
@@ -141,7 +138,7 @@ function tagsToBlockSchemas(
       })
       continue
     }
-    const property = tagToBlockProperty(tag)
+    const property = tagToBlockProperty(tag, protocols)
     if (isDiagnostic(property)) {
       errors.push(property)
       fields.hasUnreadField = true
@@ -178,8 +175,11 @@ function tagToBlockSchemaName(tag: CommentTag): string | Diagnostic {
   return name
 }
 
-function tagToBlockProperty(tag: CommentTag): Property | Diagnostic {
-  const [name, ...rest] = tag.arguments
+function tagToBlockProperty(
+  tag: CommentTag,
+  protocols: ReadonlyArray<ProtocolModule>,
+): Property | Diagnostic {
+  const [name, ...remaining] = tag.arguments
   if (tag.error !== undefined) {
     return tag.error
   }
@@ -189,148 +189,20 @@ function tagToBlockProperty(tag: CommentTag): Property | Diagnostic {
       location: tag.location,
     }
   }
-  const options = argumentsToOptions(rest, tag, blockFieldKeys)
+  const options = argumentsToOptions(remaining, tag, blockFieldKeys, protocols)
   if (isDiagnostic(options)) {
     return options
   }
-  if (options.declared === undefined) {
+  const leaf = fieldOptionsToLeaf(options)
+  let read = leaf
+  if (options.declared !== undefined) {
+    read = withLeaf(options.declared, leaf)
+  }
+  if (read === undefined) {
     return {
       message: `field "${name}" in a handler's comment needs its type: declare it with "type=<type>"`,
       location: tag.location,
     }
   }
-  return {
-    name,
-    node: fieldOptionsToNode(options.declared, options),
-    location: tag.location,
-  }
-}
-
-function tagsToResource(
-  handler: HandlerTag,
-  bodies: Array<CommentTag>,
-  read: ReadResources,
-): void {
-  const errors: Array<Diagnostic> = []
-  const derived: Array<NamedSchema> = []
-  const endpoint = handlerToEndpoint(handler)
-  if (isDiagnostic(endpoint)) {
-    errors.push(endpoint)
-  }
-  let request: Body | undefined
-  const responses: Array<Response> = []
-  for (const tag of bodies) {
-    if (tag.error !== undefined) {
-      errors.push(tag.error)
-      continue
-    }
-    if (tag.keyword === 'request') {
-      if (request !== undefined) {
-        errors.push({
-          message: `"@bidirekt request" is declared more than once in this comment: keep one`,
-          location: tag.location,
-        })
-        continue
-      }
-      const body = argumentsToBody(tag.arguments, tag.location, derived)
-      if (isDiagnostic(body)) {
-        errors.push(body)
-        continue
-      }
-      request = body
-      continue
-    }
-    const response = tagToResponse(tag, responses, derived)
-    if (isDiagnostic(response)) {
-      errors.push(response)
-      continue
-    }
-    responses.push(response)
-  }
-  read.errors.push(...errors)
-  if (isDiagnostic(endpoint) || errors.length > 0) {
-    return
-  }
-  declaredToRead(
-    { ...endpoint, request, responses, location: handler.location },
-    derived,
-    read,
-  )
-}
-
-function handlerToEndpoint(handler: HandlerTag): Endpoint | Diagnostic {
-  const { usage, arguments: count } = endpointForms[handler.keyword]
-  if (handler.error !== undefined) {
-    return handler.error
-  }
-  if (handler.arguments.length !== count) {
-    return {
-      message: `cannot read "${tagToText(handler)}": write "${usage}"`,
-      location: handler.location,
-    }
-  }
-  const [method, path] = handler.arguments.slice(-2)
-  const uppercase = methodToUppercaseDiagnostic(method, handler.location)
-  if (uppercase !== undefined) {
-    return uppercase
-  }
-  const endpoint: Endpoint = { method, path }
-  if (handler.keyword === 'consumes') {
-    endpoint.provider = handler.arguments[0]
-  }
-  return endpoint
-}
-
-function tagToResponse(
-  tag: CommentTag,
-  declared: Array<Response>,
-  derived: Array<NamedSchema>,
-): Response | Diagnostic {
-  if (tag.arguments.length === 0) {
-    return {
-      message: `cannot read "${tagToText(tag)}": write "@bidirekt response <status> [schema]"`,
-      location: tag.location,
-    }
-  }
-  const [status, ...body] = tag.arguments
-  const number = statusToNumberDiagnostic(status, tag.location)
-  if (number !== undefined) {
-    return number
-  }
-  if (declared.some((response) => response.status === Number(status))) {
-    return {
-      message: `response status "${status}" is declared more than once in this comment: keep one`,
-      location: tag.location,
-    }
-  }
-  const read = argumentsToBody(body, tag.location, derived)
-  if (isDiagnostic(read)) {
-    return read
-  }
-  return { ...read, status: Number(status) }
-}
-
-function argumentsToBody(
-  body: Array<string>,
-  location: SourceLocation,
-  derived: Array<NamedSchema>,
-): Body | Diagnostic {
-  if (body.length === 0) {
-    return { schema: null, location }
-  }
-  const text = body.join(' ')
-  const match = bodyPattern.exec(text)
-  if (match === null) {
-    return {
-      message: `cannot read "${text}" as a body: write "<schema>", "<schema>[]" or "<schema>[] as <name>"`,
-      location,
-    }
-  }
-  const [, schema] = match
-  if (!text.includes('[]')) {
-    return { schema, location }
-  }
-  const list = listToNamedSchema(schema, / as (\S+)$/.exec(text)?.[1], location)
-  derived.push(list)
-  return { schema: list.name, location }
+  return fieldOptionsToProperty(name, read, options, tag.location)
 }

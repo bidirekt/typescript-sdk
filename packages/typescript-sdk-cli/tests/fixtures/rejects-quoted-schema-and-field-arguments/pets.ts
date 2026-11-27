@@ -20,7 +20,7 @@ export class Pet {
 }
 
 /**
- * @bidirekt provides GET /health
+ * @bidirekt rest provides GET /health
  * @bidirekt response 200
  * @bidirekt schema "Health"
  * @bidirekt field status type=string
@@ -28,7 +28,7 @@ export class Pet {
 export function health() {}
 
 /**
- * @bidirekt provides GET /ready
+ * @bidirekt rest provides GET /ready
  * @bidirekt response 200 Ready
  * @bidirekt schema Ready
  * @bidirekt field "status" type=string

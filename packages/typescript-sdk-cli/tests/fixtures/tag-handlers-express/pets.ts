@@ -7,14 +7,14 @@ function findPet() {}
 function createPet() {}
 
 /**
- * @bidirekt provides GET /pets/*
+ * @bidirekt rest provides GET /pets/*
  * @bidirekt response 200 Pet
  * @bidirekt response 404
  */
 petsRouter.get('/pets/:id', findPet)
 
 /**
- * @bidirekt provides POST /pets
+ * @bidirekt rest provides POST /pets
  * @bidirekt request NewPet
  * @bidirekt response 201 Pet
  * @bidirekt response 400

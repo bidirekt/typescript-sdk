@@ -4,7 +4,7 @@ export declare class Pet {
   name: string
 }
 /**
- * @bidirekt provides GET /pets/*
+ * @bidirekt rest provides GET /pets/*
  * @bidirekt response 200 Pet
  */
 export declare function findPet(): Pet

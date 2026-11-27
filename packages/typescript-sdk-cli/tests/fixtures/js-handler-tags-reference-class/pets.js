@@ -15,20 +15,20 @@ export class NewCharge {
 }
 
 /**
- * @bidirekt provides GET /pets/*
+ * @bidirekt rest provides GET /pets/*
  * @bidirekt response 200 PetResponse
  * @bidirekt response 404
  */
 export function findPet() {}
 
 /**
- * @bidirekt provides GET /pets
+ * @bidirekt rest provides GET /pets
  * @bidirekt response 200 PetResponse[]
  */
 export const listPets = () => []
 
 /**
- * @bidirekt consumes payments_api POST /charges
+ * @bidirekt rest consumes payments_api POST /charges
  * @bidirekt request NewCharge
  * @bidirekt response 201
  */

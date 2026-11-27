@@ -1,32 +1,59 @@
 import { isDeepStrictEqual } from 'node:util'
 import type {
-  Body,
   Contract,
+  ProtocolModule,
+  Reference,
+  SchemaVocabulary,
+  SideBlock,
+} from '../protocols.ts'
+import type {
   NamedSchema,
+  Property,
   SchemaNode,
   SourceLocation,
 } from './contract.ts'
 import type { Diagnostic } from './diagnostic.ts'
-import { consumedToMerged, providedToMerged } from './resources-to-merged.ts'
+
+export type Declarations = {
+  blocks: Map<string, Array<SideBlock<unknown>>>
+  schemas: Array<NamedSchema>
+}
 
 export type ContractResult = {
   contract: Contract
   errors: Array<Diagnostic>
 }
 
-type Reference = {
-  schema: string
-  location: SourceLocation
+export type ProtocolBlock = {
+  protocol: ProtocolModule
+  block: unknown
 }
 
-export function declarationsToContract(declarations: Contract): ContractResult {
+type VocabularyReference = Reference & {
+  vocabulary?: SchemaVocabulary
+}
+
+export function declarationsToContract(
+  declarations: Declarations,
+  protocols: ReadonlyArray<ProtocolModule>,
+): ContractResult {
   const { schemas, errors } = declarationsToSchemas(declarations.schemas)
-  const provides = providedToMerged(declarations.provides)
-  const consumes = consumedToMerged(declarations.consumes)
-  const contract = {
-    provides: provides.resources,
-    consumes: consumes.resources,
+  const contract: Contract = {
+    provides: new Map(),
+    consumes: new Map(),
     schemas,
+  }
+  const mergeErrors: Array<Diagnostic> = []
+  for (const protocol of protocols) {
+    const sides = Map.groupBy(
+      declarations.blocks.get(protocol.name) ?? [],
+      ({ provider }) => provider,
+    )
+    for (const [provider, sideBlocks] of sides) {
+      const merged = protocol.merge(sideBlocks)
+      mergeErrors.push(...merged.errors)
+      sideToBlocks(contract, provider).set(protocol.name, merged.block)
+    }
   }
   const declared = new Set(declarations.schemas.map((schema) => schema.name))
   return {
@@ -34,11 +61,33 @@ export function declarationsToContract(declarations: Contract): ContractResult {
     errors: [
       ...errors,
       ...declarations.schemas.flatMap(schemaToDuplicateFields),
-      ...provides.errors,
-      ...consumes.errors,
-      ...contractToMissingReferences(contract, declared),
+      ...mergeErrors,
+      ...contractToMissingReferences(contract, protocols, declared),
     ],
   }
+}
+
+export function contractToProtocolBlocks(
+  contract: Contract,
+  protocols: ReadonlyArray<ProtocolModule>,
+): Array<ProtocolBlock> {
+  return [contract.provides, ...contract.consumes.values()].flatMap((blocks) =>
+    protocols
+      .filter((protocol) => blocks.has(protocol.name))
+      .map((protocol) => ({ protocol, block: blocks.get(protocol.name) })),
+  )
+}
+
+function sideToBlocks(
+  contract: Contract,
+  provider: string | undefined,
+): Map<string, unknown> {
+  if (provider === undefined) {
+    return contract.provides
+  }
+  const blocks = contract.consumes.get(provider) ?? new Map<string, unknown>()
+  contract.consumes.set(provider, blocks)
+  return blocks
 }
 
 function declarationsToSchemas(declarations: Array<NamedSchema>): {
@@ -52,9 +101,7 @@ function declarationsToSchemas(declarations: Array<NamedSchema>): {
     (declaration) => declaration.name,
   )) {
     const [first] = group
-    if (
-      group.every((declaration) => isSameList(declaration.node, first.node))
-    ) {
+    if (group.every((declaration) => isSameSchema(declaration, first))) {
       schemas.push(first)
       continue
     }
@@ -67,11 +114,9 @@ function declarationsToSchemas(declarations: Array<NamedSchema>): {
 }
 
 function schemaToDuplicateFields(schema: NamedSchema): Array<Diagnostic> {
-  if (schema.node.type !== 'object') {
-    return []
-  }
-  const names = schema.node.properties.map(({ name }) => name)
-  return schema.node.properties
+  const properties = nodeToProperties(schema.node)
+  const names = properties.map(({ name }) => name)
+  return properties
     .filter(({ name }) => names.indexOf(name) !== names.lastIndexOf(name))
     .map(({ name, location }) => ({
       message: `field "${name}" is declared more than once in schema "${schema.name}": give each field a distinct name`,
@@ -79,11 +124,44 @@ function schemaToDuplicateFields(schema: NamedSchema): Array<Diagnostic> {
     }))
 }
 
-function isSameList(node: SchemaNode, first: SchemaNode): boolean {
-  if (node === first) {
+function nodeToProperties(node: SchemaNode): Array<Property> {
+  switch (node.type) {
+    case 'object':
+      return node.properties
+    case 'union':
+      return node.properties ?? []
+  }
+  return []
+}
+
+function isSameSchema(schema: NamedSchema, first: NamedSchema): boolean {
+  if (schema.node === first.node) {
     return true
   }
-  return node.type === 'array' && isDeepStrictEqual(node, first)
+  if (schema.derived === true && first.derived === true) {
+    return isDeepStrictEqual(
+      withSortedMembers(schema.node),
+      withSortedMembers(first.node),
+    )
+  }
+  return (
+    schema.node.type === 'array' && isDeepStrictEqual(schema.node, first.node)
+  )
+}
+
+function withSortedMembers(node: SchemaNode): SchemaNode {
+  switch (node.type) {
+    case 'enum':
+      return { ...node, members: node.members.toSorted() }
+    case 'union':
+      return {
+        ...node,
+        members: node.members.toSorted((a, b) =>
+          Buffer.compare(Buffer.from(a.key), Buffer.from(b.key)),
+        ),
+      }
+  }
+  return node
 }
 
 function collisionToMessage(name: string, group: Array<NamedSchema>): string {
@@ -99,49 +177,91 @@ function collisionToMessage(name: string, group: Array<NamedSchema>): string {
 
 function contractToMissingReferences(
   contract: Contract,
+  protocols: ReadonlyArray<ProtocolModule>,
   declared: ReadonlySet<string>,
 ): Array<Diagnostic> {
-  const bodies: Array<Body> = [...contract.provides, ...contract.consumes]
-    .flatMap((resource) => [resource.request, ...resource.responses])
-    .filter((body) => body !== undefined)
-  const references: Array<Reference> = [
-    ...bodies.flatMap(({ schema, location }) => {
-      if (schema === null) {
-        return []
-      }
-      return [{ schema, location }]
-    }),
+  const references: Array<VocabularyReference> = [
+    ...contractToProtocolBlocks(contract, protocols).flatMap(
+      ({ protocol, block }) =>
+        protocol.references(block).map((reference) => ({
+          ...reference,
+          vocabulary: protocol.vocabulary,
+        })),
+    ),
     ...contract.schemas.flatMap((schema) =>
-      nodeToReferences(schema.node, schema.location),
+      nodeToReferences(schema.node, schema.location, schema.vocabulary),
     ),
   ]
   return references
     .filter(({ schema }) => !declared.has(schema))
-    .map(({ schema, location }) => ({
-      message: `schema "${schema}" is not declared: reference a schema by its name in the contract`,
+    .map(({ schema, location, vocabulary }) => ({
+      message: missingSchemaToMessage(schema, vocabulary),
       location,
     }))
+}
+
+function missingSchemaToMessage(
+  schema: string,
+  vocabulary: SchemaVocabulary | undefined,
+): string {
+  const primitive = vocabulary?.primitiveNames?.get(schema)
+  if (vocabulary === undefined || primitive === undefined) {
+    return `schema "${schema}" is not declared: reference a schema by its name in the contract`
+  }
+  return `${schema} is ${vocabulary.label}'s name: write ${primitive}`
 }
 
 function nodeToReferences(
   node: SchemaNode,
   location: SourceLocation,
-): Array<Reference> {
+  vocabulary: SchemaVocabulary | undefined,
+): Array<VocabularyReference> {
+  return [
+    ...extraToReferences(node, location, vocabulary),
+    ...typeToReferences(node, location, vocabulary),
+  ]
+}
+
+function extraToReferences(
+  node: SchemaNode,
+  location: SourceLocation,
+  vocabulary: SchemaVocabulary | undefined,
+): Array<VocabularyReference> {
+  if (node.extra === undefined || vocabulary === undefined) {
+    return []
+  }
+  return vocabulary.references(node).map((schema) => ({ schema, location }))
+}
+
+function typeToReferences(
+  node: SchemaNode,
+  location: SourceLocation,
+  vocabulary: SchemaVocabulary | undefined,
+): Array<VocabularyReference> {
   switch (node.type) {
     case 'ref':
-      return [{ schema: node.schema, location }]
+      return [{ schema: node.schema, location, vocabulary }]
     case 'object':
-      return node.properties.flatMap((property) =>
-        nodeToReferences(property.node, property.location),
-      )
+      return propertiesToReferences(node.properties)
     case 'array':
-      return nodeToReferences(node.items, location)
+      return nodeToReferences(node.items, location, vocabulary)
     case 'map':
-      return nodeToReferences(node.values, location)
+      return nodeToReferences(node.values, location, vocabulary)
     case 'union':
-      return node.members.flatMap((member) =>
-        nodeToReferences(member.node, location),
-      )
+      return [
+        ...propertiesToReferences(node.properties ?? []),
+        ...node.members.flatMap((member) =>
+          nodeToReferences(member.node, location, vocabulary),
+        ),
+      ]
   }
   return []
+}
+
+function propertiesToReferences(
+  properties: Array<Property>,
+): Array<VocabularyReference> {
+  return properties.flatMap((property) =>
+    nodeToReferences(property.node, property.location, property.vocabulary),
+  )
 }

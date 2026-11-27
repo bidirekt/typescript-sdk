@@ -1,5 +1,5 @@
 /**
- * @bidirekt provides GET "/pets/by name"
+ * @bidirekt rest provides GET "/pets/by name"
  * @bidirekt response 200
  */
 export function findByName() {}
@@ -15,19 +15,19 @@ export enum Size {
 }
 
 /**
- * @bidirekt provides GET "/pets"
+ * @bidirekt rest provides GET "/pets"
  * @bidirekt response 200
  */
 export function listPets() {}
 
 /**
- * @bidirekt consumes "payments_api" GET /charges
+ * @bidirekt rest consumes "payments_api" GET /charges
  * @bidirekt response 200
  */
 export function listCharges() {}
 
 /**
- * @bidirekt provides POST /pets
+ * @bidirekt rest provides POST /pets
  * @bidirekt request "Status"
  * @bidirekt response 201 "Status"
  * @bidirekt response 200 Status[] as "Statuses"

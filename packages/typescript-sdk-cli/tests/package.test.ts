@@ -52,7 +52,7 @@ const petContract = [
 
 const taggedSource = [
   '/**',
-  ' * @bidirekt provides GET /pets',
+  ' * @bidirekt rest provides GET /pets',
   ' * @bidirekt response 204',
   ' */',
   'export function listPets() {}',
@@ -158,7 +158,8 @@ describe('npm pack', () => {
         'dist/index.js',
         'dist/index.cjs',
         'dist/index.d.ts',
-        'dist/index.d.cts',
+        'dist/cjs/index.d.ts',
+        'dist/cjs/package.json',
       ],
       [cliName]: ['dist/cli.js'],
     }
@@ -324,9 +325,12 @@ describe('npm pack', () => {
       )
 
       const decorators = [
-        'BidirektConsumer',
         'BidirektField',
-        'BidirektProvider',
+        'BidirektGraph',
+        'BidirektGraphqlConsumer',
+        'BidirektGraphqlField',
+        'BidirektRestConsumer',
+        'BidirektRestProvider',
         'BidirektSchema',
       ]
       const [requiredNames, requiredEntry] = JSON.parse(required) as [

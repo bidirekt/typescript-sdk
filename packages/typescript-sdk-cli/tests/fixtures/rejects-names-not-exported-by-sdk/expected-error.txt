@@ -1,0 +1,13 @@
+clinics.js:1 BidirektConsumer is not exported by @bidirekt/typescript-sdk: it is now BidirektRestConsumer
+contracts.ts:1 BidirektConsumer is not exported by @bidirekt/typescript-sdk: it is now BidirektRestConsumer
+graphql.ts:1 BidirektGraphqlProvider is not exported by @bidirekt/typescript-sdk, so it is not read
+graphql.ts:1 BidirektGraphqlProviderOptions is not exported by @bidirekt/typescript-sdk
+graphql.ts:2 BidirektGraphqlSchema is not exported by @bidirekt/typescript-sdk
+graphql.ts:3 BidirektConsumerOptions is not exported by @bidirekt/typescript-sdk: it is now BidirektRestConsumerOptions
+graphql.ts:3 BidirektGraphqlResolver is not exported by @bidirekt/typescript-sdk
+graphql.ts:3 BidirektHttpMethod is not exported by @bidirekt/typescript-sdk: it is now BidirektRestHttpMethod
+labs.js:4 BidirektConsumer is not exported by @bidirekt/typescript-sdk: it is now BidirektRestConsumer
+owners.ts:2 BidirektProviderOptions is not exported by @bidirekt/typescript-sdk: it is now BidirektRestProviderOptions
+owners.ts:8 BidirektProvider is not exported by @bidirekt/typescript-sdk: it is now BidirektRestProvider
+pets.ts:1 BidirektProvider is not exported by @bidirekt/typescript-sdk: it is now BidirektRestProvider
+vets.ts:2 BidirektConsumer is not exported by @bidirekt/typescript-sdk: it is now BidirektRestConsumer

@@ -1,6 +1,6 @@
 import {
   BidirektField,
-  BidirektProvider,
+  BidirektRestProvider,
   BidirektSchema,
 } from '@bidirekt/typescript-sdk'
 import { Card, Owner, Pix } from '@acme/dto'
@@ -15,7 +15,7 @@ export class Pet {
 }
 
 export class OwnersController {
-  @BidirektProvider({
+  @BidirektRestProvider({
     method: 'GET',
     path: '/owners/*',
     responses: { 200: Owner },

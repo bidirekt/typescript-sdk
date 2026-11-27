@@ -11,7 +11,7 @@ export class Pet {
   name!: string
 
   /**
-   * @BidirektProvider and @BidirektConsumer go on handler methods.
+   * @BidirektRestProvider and @BidirektRestConsumer go on handler methods.
    * Kept out of the contract: it has no @BidirektField.
    */
   internalNotes!: string

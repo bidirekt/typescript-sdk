@@ -1,7 +1,7 @@
 /**
- * @bidirekt provides GET /docs
+ * @bidirekt rest provides GET /docs
  * @bidirekt response 200
  */
 export function docsPage() {
-  return <code>/** @bidirekt provides GET /pets */</code>
+  return <code>/** @bidirekt rest provides GET /pets */</code>
 }

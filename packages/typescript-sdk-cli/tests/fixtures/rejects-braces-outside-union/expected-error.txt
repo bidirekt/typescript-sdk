@@ -1,3 +1,3 @@
-owners.ts:2 cannot read "@bidirekt provides GET /owners/{ id }": write "@bidirekt provides <METHOD> <path>"
-owners.ts:8 cannot read "@bidirekt consumes {payments api} POST /charges": write "@bidirekt consumes <provider> <METHOD> <path>"
-owners.ts:13 cannot read "Status}" in "@bidirekt schema": write "name=<name>"
+owners.ts:2 cannot read "@bidirekt rest provides GET /owners/{ id }": write "@bidirekt rest provides <METHOD> <path>"
+owners.ts:8 cannot read "@bidirekt rest consumes {payments api} POST /charges": write "@bidirekt rest consumes <provider> <METHOD> <path>"
+owners.ts:13 cannot read "Status}" in "@bidirekt schema": write "<key>=<value>" with key name or union

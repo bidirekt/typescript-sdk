@@ -1,0 +1,2 @@
+pets.ts:2 cannot read "@bidirekt rest": write "@bidirekt rest provides <METHOD> <path>" or "@bidirekt rest consumes <provider> <METHOD> <path>"
+pets.ts:8 cannot read "@bidirekt rest handles GET /pets": write "@bidirekt rest provides <METHOD> <path>" or "@bidirekt rest consumes <provider> <METHOD> <path>"

@@ -1,10 +1,5 @@
-type BidirektDecorator = (
-  target: unknown,
-  context?: unknown,
-  descriptor?: unknown,
-) => void
-
-export type BidirektHttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
+import { ignoreDecoratedElement } from './decorator.ts'
+import type { BidirektDecorator, BidirektSchemaClass } from './decorator.ts'
 
 type BidirektPrimitive = 'string' | 'integer' | 'float' | 'number' | 'boolean'
 
@@ -14,8 +9,6 @@ export type BidirektFieldType = BidirektNestedType<
   BidirektNestedType<BidirektNestedType<BidirektPrimitive>>
 >
 
-type BidirektSchemaClass = abstract new (...args: never) => unknown
-
 export type BidirektBody =
   | BidirektSchemaClass
   | readonly [BidirektSchemaClass]
@@ -24,6 +17,7 @@ export type BidirektBody =
 
 export interface BidirektSchemaOptions {
   name?: string
+  union?: Record<string, BidirektSchemaClass>
 }
 
 export interface BidirektFieldOptions {
@@ -33,21 +27,6 @@ export interface BidirektFieldOptions {
   nullable?: boolean
   description?: string
   union?: Record<string, BidirektSchemaClass>
-}
-
-export interface BidirektProviderOptions {
-  method: BidirektHttpMethod
-  path: string
-  request?: BidirektBody
-  responses: Record<number, BidirektBody>
-}
-
-export interface BidirektConsumerOptions extends BidirektProviderOptions {
-  provider: string
-}
-
-function ignoreDecoratedElement(): undefined {
-  return undefined
 }
 
 export function BidirektSchema(
@@ -62,14 +41,5 @@ export function BidirektField(
   return ignoreDecoratedElement
 }
 
-export function BidirektProvider(
-  _options: BidirektProviderOptions,
-): BidirektDecorator {
-  return ignoreDecoratedElement
-}
-
-export function BidirektConsumer(
-  _options: BidirektConsumerOptions,
-): BidirektDecorator {
-  return ignoreDecoratedElement
-}
+export * from './protocols/rest.ts'
+export * from './protocols/graphql.ts'

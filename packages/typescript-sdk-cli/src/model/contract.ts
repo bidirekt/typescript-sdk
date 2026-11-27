@@ -1,27 +1,16 @@
+import type { SchemaVocabulary } from '../protocols.ts'
+
 export type SourceLocation = {
   file: string
   line: number
 }
 
-export type Body = {
-  schema: string | null
-  location: SourceLocation
-}
-
-export type Response = Body & {
-  status: number
-}
-
-export type ProvidedResource = {
-  method: string
-  path: string
-  request?: Body
-  responses: Array<Response>
-  location: SourceLocation
-}
-
-export type ConsumedResource = ProvidedResource & {
-  provider: string
+export function compareLocations(a: SourceLocation, b: SourceLocation): number {
+  const fileOrder = Buffer.compare(Buffer.from(a.file), Buffer.from(b.file))
+  if (fileOrder !== 0) {
+    return fileOrder
+  }
+  return a.line - b.line
 }
 
 export type PrimitiveType =
@@ -37,6 +26,7 @@ export type Property = {
   name: string
   node: SchemaNode
   location: SourceLocation
+  vocabulary?: SchemaVocabulary
 }
 
 export type UnionMember = {
@@ -44,14 +34,19 @@ export type UnionMember = {
   node: SchemaNode
 }
 
-export type SchemaNode = NodeFlags &
-  (
+export type SchemaNode = NodeFlags & {
+  extra?: Record<string, unknown>
+} & (
     | { type: PrimitiveType }
     | { type: 'object'; properties: Array<Property> }
     | { type: 'array'; items: SchemaNode }
     | { type: 'map'; values: SchemaNode }
     | { type: 'enum'; members: Array<string> }
-    | { type: 'union'; members: Array<UnionMember> }
+    | {
+        type: 'union'
+        members: Array<UnionMember>
+        properties?: Array<Property>
+      }
     | { type: 'ref'; schema: string }
   )
 
@@ -59,10 +54,6 @@ export type NamedSchema = {
   name: string
   node: SchemaNode
   location: SourceLocation
-}
-
-export type Contract = {
-  provides: Array<ProvidedResource>
-  consumes: Array<ConsumedResource>
-  schemas: Array<NamedSchema>
+  derived?: true
+  vocabulary?: SchemaVocabulary
 }

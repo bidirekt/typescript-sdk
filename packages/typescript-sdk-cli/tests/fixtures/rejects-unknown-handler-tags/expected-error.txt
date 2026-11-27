@@ -1,0 +1,5 @@
+handlers.ts:2 unknown tag "@bidirekt provides": write "@bidirekt rest provides"
+handlers.ts:3 "@bidirekt response" needs a "@bidirekt rest provides" or "@bidirekt rest consumes" tag in the same comment
+handlers.ts:11 unknown tag "@bidirekt consumes": write "@bidirekt rest consumes"
+handlers.ts:12 "@bidirekt response" needs a "@bidirekt rest provides" or "@bidirekt rest consumes" tag in the same comment
+handlers.ts:17 unknown tag "@bidirekt handles": use rest, request, response, graphql, arguments, returns, graph, schema or field

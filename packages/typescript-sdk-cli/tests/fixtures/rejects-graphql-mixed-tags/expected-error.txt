@@ -1,0 +1,6 @@
+clients.ts:15 "@bidirekt returns" needs a "@bidirekt graphql consumes" tag in the same comment
+clients.ts:22 "@bidirekt response" needs a "@bidirekt rest provides" or "@bidirekt rest consumes" tag in the same comment
+clients.ts:28 a comment declares one handler: move "@bidirekt graphql consumes petstore_api query pets" to its own comment
+clients.ts:29 "@bidirekt returns" needs a "@bidirekt graphql consumes" tag in the same comment
+clients.ts:35 @BidirektGraphqlConsumer and "@bidirekt graphql consumes petstore_api query petCount" are both on this handler: keep one
+clients.ts:38 @BidirektGraphqlConsumer and "@bidirekt graphql consumes petstore_api query petCount" are both on this handler: keep one

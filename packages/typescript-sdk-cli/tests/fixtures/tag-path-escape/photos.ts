@@ -7,7 +7,7 @@ export class Photo {
 }
 
 /**
- * @bidirekt provides GET /pets/*\/photos
+ * @bidirekt rest provides GET /pets/*\/photos
  * @bidirekt response 200 Photo[]
  */
 export function listPhotos() {}

@@ -22,7 +22,7 @@ export interface Shelter {
 }
 
 /**
- * @bidirekt provides POST /pets
+ * @bidirekt rest provides POST /pets
  * @bidirekt request NewPet
  * @bidirekt response 201 PetCard
  */

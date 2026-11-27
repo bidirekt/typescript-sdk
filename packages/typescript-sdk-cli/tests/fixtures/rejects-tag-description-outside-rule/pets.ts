@@ -5,7 +5,7 @@ export class Pet {
 }
 
 /**
- * @bidirekt provides GET /health
+ * @bidirekt rest provides GET /health
  * @bidirekt response 200 Health
  * @bidirekt schema Health
  * @bidirekt field status type=string description="Shown on the status page."

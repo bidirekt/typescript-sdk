@@ -1,5 +1,5 @@
 /**
- * @bidirekt provides GET /health
+ * @bidirekt rest provides GET /health
  * @bidirekt response 200 Health
  * @bidirekt field status type=string
  *
@@ -14,7 +14,7 @@
 export function health() {}
 
 /**
- * @bidirekt provides GET /status
+ * @bidirekt rest provides GET /status
  * @bidirekt response 200 Health
  *
  * @bidirekt schema Health
@@ -23,7 +23,7 @@ export function health() {}
 export function status() {}
 
 /**
- * @bidirekt provides GET /uptime
+ * @bidirekt rest provides GET /uptime
  * @bidirekt response 200 Uptime
  *
  * @bidirekt schema Uptime
