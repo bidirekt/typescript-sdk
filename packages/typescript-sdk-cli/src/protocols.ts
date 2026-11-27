@@ -1,6 +1,7 @@
 import type { YAMLMap } from 'yaml'
 import type {
   NamedSchema,
+  PrimitiveType,
   SchemaNode,
   SourceLocation,
 } from './model/contract.ts'
@@ -13,6 +14,7 @@ import {
   fieldOptionsToLeaf,
   fieldOptionsToNode,
   nodeToArgumentsSchemas,
+  primitiveNames,
 } from './model/protocols/graphql/field-extra.ts'
 import type { Resource } from './model/protocols/rest/contract.ts'
 import { resourcesToReferences } from './model/protocols/rest/resources-to-references.ts'
@@ -20,8 +22,12 @@ import { sideBlocksToMerged } from './model/protocols/rest/resources-to-merged.t
 import type { TaggedComment } from './reader/comment-tags.ts'
 import { graphqlDecoratorTargets } from './reader/protocols/graphql/decorators-to-blocks.ts'
 import { protocolInputToBlocks } from './reader/protocols/graphql/protocol-input-to-blocks.ts'
-import { restDecoratorTargets } from './reader/protocols/rest/handler-methods.ts'
+import {
+  restDecoratorTargets,
+  restRenamedExports,
+} from './reader/protocols/rest/handler-methods.ts'
 import { protocolInputToResources } from './reader/protocols/rest/protocol-input-to-resources.ts'
+import { restRenamedTags } from './reader/protocols/rest/tag-handlers.ts'
 import type { SchemaContext } from './reader/schema-context.ts'
 import type { DecoratorTarget, SdkDecorator } from './reader/sdk-references.ts'
 import { blockToYaml } from './writer/protocols/graphql/block-to-yaml.ts'
@@ -64,8 +70,10 @@ export type MergedBlock<TBlock> = {
 export type OptionValue = string
 
 export interface SchemaVocabulary {
+  label: string
   fieldDecorator: string
   fieldOptions: ReadonlyArray<string>
+  primitiveNames?: ReadonlyMap<string, PrimitiveType>
   toLeaf?: (options: Record<string, OptionValue>) => SchemaNode | undefined
   toNode: (options: Record<string, OptionValue>, node: SchemaNode) => SchemaNode
   toYaml: (node: SchemaNode, map: YAMLMap) => void
@@ -75,7 +83,9 @@ export interface SchemaVocabulary {
 export interface ProtocolModule<TBlock = any> {
   name: string
   exports: Record<string, DecoratorTarget>
+  renamedExports?: Record<string, string>
   tagKeywords: ReadonlyArray<string>
+  renamedTags?: Record<string, string>
   read: (input: ProtocolInput) => ProtocolRead<TBlock>
   merge: (blocks: Array<SideBlock<TBlock>>) => MergedBlock<TBlock>
   references: (block: TBlock) => Array<Reference>
@@ -87,7 +97,9 @@ export interface ProtocolModule<TBlock = any> {
 const restProtocol: ProtocolModule<Array<Resource>> = {
   name: 'rest',
   exports: restDecoratorTargets,
+  renamedExports: restRenamedExports,
   tagKeywords: ['request', 'response'],
+  renamedTags: restRenamedTags,
   read: protocolInputToResources,
   merge: sideBlocksToMerged,
   references: resourcesToReferences,
@@ -106,8 +118,10 @@ const graphqlProtocol: ProtocolModule<GraphqlBlock> = {
     block.operations.length === 0 && block.graph === undefined,
   toYaml: blockToYaml,
   vocabulary: {
+    label: 'GraphQL',
     fieldDecorator: 'BidirektGraphqlField',
     fieldOptions,
+    primitiveNames,
     toLeaf: fieldOptionsToLeaf,
     toNode: fieldOptionsToNode,
     toYaml: fieldExtraToYaml,

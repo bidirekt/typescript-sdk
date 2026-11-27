@@ -60,6 +60,7 @@ const calls: ProtocolModule<Array<Reference>> = {
   isEmpty: (block) => block.length === 0,
   toYaml: () => new YAMLMap(),
   vocabulary: {
+    label: 'Calls',
     fieldDecorator: 'CallsField',
     fieldOptions: ['arguments'],
     toNode: (options, node) => ({ ...node, extra: options }),
@@ -141,6 +142,50 @@ describe('declarationsToContract', () => {
       contract.schemas.map((schema) => schema.name),
       ['Pet', 'PetOrNull'],
     )
+  })
+
+  it('writes a derived enum or union declared with its members in another order once, in the first order', () => {
+    const owner: NamedSchema = {
+      name: 'Owner',
+      location: { file: 'src/owner.ts', line: 1 },
+      node: { type: 'object', properties: [] },
+    }
+    const status = (file: string, members: Array<string>): NamedSchema => ({
+      name: 'Status',
+      location: { file, line: 3 },
+      node: { type: 'enum', members },
+      derived: true,
+    })
+    const searchResult = (file: string, keys: Array<string>): NamedSchema => ({
+      name: 'SearchResult',
+      location: { file, line: 5 },
+      node: {
+        type: 'union',
+        members: keys.map((key) => ({
+          key,
+          node: { type: 'ref', schema: key },
+        })),
+      },
+      derived: true,
+    })
+    const { contract, errors } = declarationsToContract(
+      declarations([
+        pet(1),
+        owner,
+        status('src/a.ts', ['SOLD', 'AVAILABLE']),
+        status('src/b.ts', ['AVAILABLE', 'SOLD']),
+        searchResult('src/a.ts', ['Pet', 'Owner']),
+        searchResult('src/b.ts', ['Owner', 'Pet']),
+      ]),
+      [calls],
+    )
+    assert.deepEqual(errors, [])
+    assert.deepEqual(contract.schemas, [
+      pet(1),
+      owner,
+      status('src/a.ts', ['SOLD', 'AVAILABLE']),
+      searchResult('src/a.ts', ['Pet', 'Owner']),
+    ])
   })
 
   it('rejects a derived schema that is not a list and equals a declared schema of its name', () => {

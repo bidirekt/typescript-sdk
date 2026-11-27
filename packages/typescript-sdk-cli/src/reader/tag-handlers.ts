@@ -16,11 +16,7 @@ import {
   withLeaf,
 } from './schema-classes.ts'
 import type { SdkDecorator } from './sdk-references.ts'
-import {
-  argumentsToOptions,
-  blockFieldKeys,
-  tagToVocabulary,
-} from './tag-schemas.ts'
+import { argumentsToOptions, blockFieldKeys } from './tag-schemas.ts'
 
 export type HandlerComments = {
   comments: Map<string, Array<TaggedComment>>
@@ -193,12 +189,7 @@ function tagToBlockProperty(
       location: tag.location,
     }
   }
-  const options = argumentsToOptions(
-    remaining,
-    tag,
-    blockFieldKeys,
-    tagToVocabulary(tag, protocols),
-  )
+  const options = argumentsToOptions(remaining, tag, blockFieldKeys, protocols)
   if (isDiagnostic(options)) {
     return options
   }

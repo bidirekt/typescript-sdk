@@ -9,9 +9,12 @@ import type {
   SchemaVocabulary,
 } from '../protocols.ts'
 import { argumentToOption, isHandlerTag, tagToLabel } from './comment-tags.ts'
-import { namesToChoice } from './literal-options.ts'
+import { hintToSuffix, namesToChoice } from './literal-options.ts'
 import type { CommentTag, TaggedComment } from './comment-tags.ts'
-import { declarationToDescription } from './schema-classes.ts'
+import {
+  declarationToDescription,
+  optionToOwningProtocol,
+} from './schema-classes.ts'
 import type { FieldOptions, TagAnnotations } from './schema-classes.ts'
 import {
   isObjectDeclaration,
@@ -75,17 +78,31 @@ export function taggedCommentsToSchemaTags(
     warnings: [],
   }
   const tagged: TaggedElements = { schemas: new Set(), fields: new Set() }
-  for (const { element, tags } of comments) {
+  for (const { element, tags, hasUnknownTag = false } of comments) {
     if (tags.some(isHandlerTag) || isDeclaredByScript(element, context)) {
       continue
     }
     const schemaTag = tagsToSingle(tags, 'schema', read)
     if (schemaTag !== undefined) {
-      schemaTagToName(schemaTag, element, context, read, tagged.schemas)
+      schemaTagToName(
+        schemaTag,
+        element,
+        context,
+        read,
+        tagged.schemas,
+        hasUnknownTag,
+      )
     }
     const fieldTag = tagsToSingle(tags, 'field', read)
     if (fieldTag !== undefined) {
-      fieldTagToOptions(fieldTag, element, read, tagged.fields, protocols)
+      fieldTagToOptions(
+        fieldTag,
+        element,
+        read,
+        tagged.fields,
+        protocols,
+        hasUnknownTag,
+      )
     }
   }
   return read
@@ -125,6 +142,7 @@ function schemaTagToName(
   context: SchemaContext,
   read: ReadTagSchemas,
   taggedSchemas: Set<ts.Node | ts.Symbol>,
+  hasUnknownTag: boolean,
 ): void {
   if (ts.isJSDocTypedefTag(element) || ts.isJSDocCallbackTag(element)) {
     read.warnings.push({
@@ -134,11 +152,12 @@ function schemaTagToName(
     return
   }
   if (!ts.isEnumDeclaration(element) && !isObjectDeclaration(element)) {
-    read.warnings.push({
-      message:
-        '"@bidirekt schema" is not above an enum, a class, an interface or an object type, so it is not read: put it above one of them',
-      location: tag.location,
-    })
+    warnMisplaced(
+      read,
+      hasUnknownTag,
+      '"@bidirekt schema" is not above an enum, a class, an interface or an object type, so it is not read: put it above one of them',
+      tag,
+    )
     return
   }
   if (
@@ -233,6 +252,19 @@ function enumTagToSchema(
   }
 }
 
+// An unknown tag can be the handler of its comment, whose schema and field tags are then the handler's.
+function warnMisplaced(
+  read: ReadTagSchemas,
+  hasUnknownTag: boolean,
+  message: string,
+  tag: CommentTag,
+): void {
+  if (hasUnknownTag) {
+    return
+  }
+  read.warnings.push({ message, location: tag.location })
+}
+
 function declarationToTagged(
   declaration: SchemaDeclaration,
   context: SchemaContext,
@@ -249,13 +281,15 @@ function fieldTagToOptions(
   read: ReadTagSchemas,
   taggedFields: Set<ts.Node>,
   protocols: ReadonlyArray<ProtocolModule>,
+  hasUnknownTag: boolean,
 ): void {
   if (!ts.isPropertyDeclaration(element) && !ts.isPropertySignature(element)) {
-    read.warnings.push({
-      message:
-        '"@bidirekt field" is not above a property, so it is not read: put it above a property of a class, an interface or an object type',
-      location: tag.location,
-    })
+    warnMisplaced(
+      read,
+      hasUnknownTag,
+      '"@bidirekt field" is not above a property, so it is not read: put it above a property of a class, an interface or an object type',
+      tag,
+    )
     return
   }
   if (isStatic(element)) {
@@ -274,12 +308,7 @@ function fieldTagToOptions(
     return
   }
   taggedFields.add(element)
-  const options = argumentsToOptions(
-    tag.arguments,
-    tag,
-    fieldKeys,
-    tagToVocabulary(tag, protocols),
-  )
+  const options = argumentsToOptions(tag.arguments, tag, fieldKeys, protocols)
   if (isDiagnostic(options)) {
     read.errors.push(options)
     read.malformedFields.add(element)
@@ -292,7 +321,7 @@ function fieldTagToOptions(
   })
 }
 
-export function tagToVocabulary(
+function tagToVocabulary(
   tag: CommentTag,
   protocols: ReadonlyArray<ProtocolModule>,
 ): SchemaVocabulary | undefined {
@@ -303,13 +332,14 @@ export function argumentsToOptions(
   tagArguments: Array<string>,
   tag: CommentTag,
   keys: Array<string>,
-  vocabulary?: SchemaVocabulary,
+  protocols: ReadonlyArray<ProtocolModule> = [],
 ): FieldOptions | Diagnostic {
   if (tag.error !== undefined) {
     return tag.error
   }
   const options: FieldOptions = {}
   const seen = new Set<string>()
+  const vocabulary = tagToVocabulary(tag, protocols)
   const known = [...keys, ...(vocabulary?.fieldOptions ?? [])]
   const vocabularyOptions: Record<string, OptionValue> = {}
   for (const argument of tagArguments) {
@@ -320,7 +350,9 @@ export function argumentsToOptions(
       location: tag.location,
     })
     if (option === undefined || !known.includes(key)) {
-      return fail(keysToUsage(known))
+      return fail(
+        `${keysToUsage(known)}${hintToSuffix(optionToFieldTagHint(key, protocols))}`,
+      )
     }
     if (seen.has(key)) {
       return {
@@ -390,6 +422,17 @@ export function argumentsToOptions(
     options.extension = { vocabulary, options: vocabularyOptions }
   }
   return options
+}
+
+function optionToFieldTagHint(
+  key: string,
+  protocols: ReadonlyArray<ProtocolModule>,
+): string | undefined {
+  const owner = optionToOwningProtocol(key, protocols)
+  if (owner?.vocabulary === undefined) {
+    return undefined
+  }
+  return `for ${owner.vocabulary.label}, use "@bidirekt ${owner.name} field"`
 }
 
 function keysToUsage(keys: Array<string>): string {

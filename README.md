@@ -527,18 +527,23 @@ bidirekt record-deployment petstore_ts --version 1.4.0 --environment production
 
 `validate` without `--participant` and `--environment` checks only the file; with them, it also compares the file with what is deployed in that environment. When `can-i-deploy` reports a break, fix the annotation or the type in the code and generate again.
 
+A subgraph, a service that declares its graph with `@BidirektGraph` or `@bidirekt graph`, validates and publishes its own GraphQL schema together with the contract: `bidirekt validate contracts/generated.yaml src/schema.graphql`, and the same two files in `publish`. `contracts/generated.yaml` alone fails with `graph "petstore_graph" without a GraphQL schema`.
+
 A package of your workspace, which npm links into `node_modules`, is read as your code when its `types` or `exports` point at its source. A class, interface or type reached through its built `.d.ts` stops `generate`.
 
 ## Reference
 
 ### Decorators
 
-| Decorator                        | Goes on    | Options                                                                    |
-| -------------------------------- | ---------- | -------------------------------------------------------------------------- |
-| `@BidirektSchema(options?)`      | a class    | `name`, `union`                                                            |
-| `@BidirektField(options?)`       | a property | `type`, `name`, `optional`, `nullable`, `description`, `union`, see Fields |
-| `@BidirektRestProvider(options)` | a method   | `method`, `path`, `request`, `responses`                                   |
-| `@BidirektRestConsumer(options)` | a method   | `provider`, `method`, `path`, `request`, `responses`                       |
+| Decorator                           | Goes on    | Options                                                                        |
+| ----------------------------------- | ---------- | ------------------------------------------------------------------------------ |
+| `@BidirektSchema(options?)`         | a class    | `name`, `union`                                                                |
+| `@BidirektField(options?)`          | a property | `type`, `name`, `optional`, `nullable`, `description`, `union`, see Fields     |
+| `@BidirektRestProvider(options)`    | a method   | `method`, `path`, `request`, `responses`                                       |
+| `@BidirektRestConsumer(options)`    | a method   | `provider`, `method`, `path`, `request`, `responses`                           |
+| `@BidirektGraphqlConsumer(options)` | a method   | `provider`, `query` or `mutation`, `arguments`, `returns`, see GraphQL returns |
+| `@BidirektGraphqlField(options?)`   | a property | the options of `@BidirektField`, `scalar`, `arguments`, see Fields             |
+| `@BidirektGraph(name)`              | a class    | none: `name` is the graph the service is a subgraph of                         |
 
 `generate` recognizes a decorator by where it is imported from, `@bidirekt/typescript-sdk`, also through an alias, `import * as` or a re-export in your own code, never by its name. Options are written in place, as literals and classes, never through a variable. A decorator built at runtime (returned by a wrapper function, applied in a loop) is not read, and `generate` warns. A decorator on a `static` property is not read either, and `generate` warns.
 
@@ -546,14 +551,18 @@ With `emitDecoratorMetadata` on (NestJS, TypeORM), TypeScript keeps the imports 
 
 ### Tags
 
-| Tag                                                  | Goes above                                                                     |
-| ---------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `@bidirekt schema [name=<Name>] [union={...}]`       | a class, an `interface`, an object `type` or a string `enum`                   |
-| `@bidirekt field [key=value ...]`                    | a property of a schema                                                         |
-| `@bidirekt rest provides <METHOD> <path>`            | a function, an exported arrow function, a method or a statement (`router.get`) |
-| `@bidirekt rest consumes <provider> <METHOD> <path>` | the same                                                                       |
-| `@bidirekt request [body]`                           | follows `rest provides` or `rest consumes`                                     |
-| `@bidirekt response <status> [body]`                 | follows `rest provides` or `rest consumes`, once per status                    |
+| Tag                                                            | Goes above                                                                     |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `@bidirekt schema [name=<Name>] [union={...}]`                 | a class, an `interface`, an object `type` or a string `enum`                   |
+| `@bidirekt field [key=value ...]`                              | a property of a schema                                                         |
+| `@bidirekt rest provides <METHOD> <path>`                      | a function, an exported arrow function, a method or a statement (`router.get`) |
+| `@bidirekt rest consumes <provider> <METHOD> <path>`           | the same                                                                       |
+| `@bidirekt request [body]`                                     | follows `rest provides` or `rest consumes`                                     |
+| `@bidirekt response <status> [body]`                           | follows `rest provides` or `rest consumes`, once per status                    |
+| `@bidirekt graphql consumes <provider> query\|mutation <name>` | the same as `rest provides`                                                    |
+| `@bidirekt arguments <schema>`, `@bidirekt returns <type>`     | follow `graphql consumes`, see GraphQL returns                                 |
+| `@bidirekt graphql field [key=value ...]`                      | a property of a schema, in place of `field`, see Fields                        |
+| `@bidirekt graph <name>`                                       | a class or any other element: `name` is the graph the service is a subgraph of |
 
 - A handler's comment can also declare schemas, see [Schemas in a handler's comment](#schemas-in-a-handlers-comment).
 - A tag starts a line of a `/** */` comment, and its arguments are separated by spaces. Only a `description` value is quoted (`description="Shown on the card"`), and inside the quotes it holds only ASCII letters and digits, with single spaces between words. Only a `union=` value is grouped in `{...}`, with optional spaces inside; quotes or braces anywhere else stop `generate`.
@@ -577,7 +586,7 @@ Without a request (no `request` option, no `@bidirekt request` tag), the resourc
 
 ### GraphQL returns
 
-`@BidirektGraphqlConsumer({ provider, query, arguments, returns })` on a method declares a GraphQL query the service calls, and `mutation` in place of `query` a mutation; with tags, `@bidirekt graphql consumes <provider> query|mutation <name>` above a handler, with `@bidirekt arguments <schema>` and `@bidirekt returns <type>`. `arguments` is a schema, and `returns` the shape the call reads:
+`@BidirektGraphqlConsumer({ provider, query, arguments, returns })` on a method declares a GraphQL query the service calls, and `mutation` in place of `query` a mutation; with tags, `@bidirekt graphql consumes <provider> query|mutation <name>` above a handler, with `@bidirekt arguments <schema>` and `@bidirekt returns <type>`. `provider` names the service that answers the call, or a federated graph, and then the call is checked against the graph its subgraphs compose. `arguments` is a schema, and `returns` the shape the call reads:
 
 | Returns                 | Decorator                                                     | Tag                                              | Contract        |
 | ----------------------- | ------------------------------------------------------------- | ------------------------------------------------ | --------------- |
@@ -591,7 +600,7 @@ Without a request (no `request` option, no `@bidirekt request` tag), the resourc
 | an enum                 | `{ enum: ['AVAILABLE', 'SOLD'], name: 'Status' }`             | `enum:AVAILABLE\|SOLD as Status`                 | `Status`        |
 | a union                 | `{ union: { Pet: Pet, Owner: Owner }, name: 'SearchResult' }` | `union={Pet: Pet, Owner: Owner} as SearchResult` | `SearchResult`  |
 
-A primitive, a scalar, an enum or a union also takes the place of the schema in a nullable or a list (`{ nullable: 'integer' }`, `'string[]'`, `scalar:DateTime?[]`). Each key of a union is the name of one of its types in the provider's GraphQL schema, and its value the schema the call reads from that type. Each form but a schema returned as it is becomes a schema of the contract, with the name above, and `name` in the decorator or `as <name>` in the tag gives it another one (`{ nullable: Pet, name: 'MaybePet' }`, `Pet? as MaybePet`). They name only a schema `generate` creates: a schema returned as it is is not copied, the call references it by its own name, so `@bidirekt returns Pet as MyPet` stops `generate`. To call it `MyPet`, name the schema itself, with `@BidirektSchema({ name })` or `@bidirekt schema name=<Name>`. A primitive returned as it is takes another name only in the tag (`boolean as Flag`): in the decorator it is a bare string, `'boolean'`, always written as `Boolean`. An enum or a union in a nullable or a list is a schema of its own, under the name it declares, and the nullable or the list references it under the name above: `{ nullable: { enum: ['AVAILABLE', 'SOLD'], name: 'Status' } }` and `enum:AVAILABLE|SOLD? as Status` both write `Status` and `StatusOrNull: {ref: Status, nullable: true}`. In the tag, that `as` names the enum or the union, never the nullable or the list around it.
+A primitive, a scalar, an enum or a union also takes the place of the schema in a nullable or a list (`{ nullable: 'integer' }`, `'string[]'`, `scalar:DateTime?[]`). Each key of a union is the name of one of its types in the provider's GraphQL schema, and its value the schema the call reads from that type. Each form but a schema returned as it is becomes a schema of the contract, with the name above, and `name` in the decorator or `as <name>` in the tag gives it another one (`{ nullable: Pet, name: 'MaybePet' }`, `Pet? as MaybePet`). They name only a schema `generate` creates: a schema returned as it is is not copied, the call references it by its own name, so `@bidirekt returns Pet as MyPet` stops `generate`. To call it `MyPet`, name the schema itself, with `@BidirektSchema({ name })` or `@bidirekt schema name=<Name>`. A primitive returned as it is takes another name only in the tag (`boolean as Flag`): in the decorator it is a bare string, `'boolean'`, always written as `Boolean`. An enum or a union in a nullable or a list is a schema of its own, under the name it declares, and the nullable or the list references it under the name above: `{ nullable: { enum: ['AVAILABLE', 'SOLD'], name: 'Status' } }` and `enum:AVAILABLE|SOLD? as Status` both write `Status` and `StatusOrNull: {ref: Status, nullable: true}`. In the tag, that `as` names the enum or the union, never the nullable or the list around it. A scalar in a nullable or a list takes no name of its own: the name goes on the nullable or the list, and in the tag `as` names them.
 
 A call that reads a GraphQL interface both on the interface and on the types that implement it, as `node(id: $id) { id ... on User { name } ... on Pet { species } }`, returns a schema with a `union`: its fields are the ones read on the interface, and `union` maps each type read with `... on` to the schema the call reads from it. `@BidirektSchema({ union: { User: UserName, Pet: PetSpecies } })` on a class `Node` with `@BidirektField() id`, or `@bidirekt schema union={User: UserName, Pet: PetSpecies}` above `interface Node` with a `@bidirekt field` on `id`, writes `Node` as `type: union`, with `id` in its `properties` and `User` and `Pet` in its `members`. A member's schema holds only the fields read on its own type: a member class that extends `Node` would repeat `id`. A schema with a `union` and no field writes only the `members`, a named union like `{ union: {...}, name }`. `union=` goes above a class, an interface or an object type, never above an enum.
 
@@ -607,6 +616,8 @@ A call that reads a GraphQL interface both on the interface and on the types tha
 | `union: { card: CardPayment, pix: PixPayment }` | `union={card: CardPayment, pix: PixPayment}` | the key of each member of a union of schemas                                                                                    |
 
 A `union` names each schema of the field's union once, by one key, and nothing else; a tag names each member by its name in the contract, never a list or a map. It applies to the union of the field, of its items or of its values (`Array<Card | Pix>`), and `null` and `undefined` in the type still make them `nullable` or `optional`.
+
+In a GraphQL contract, `@BidirektGraphqlField` takes the place of `@BidirektField` on a field that needs GraphQL's own options, and `@bidirekt graphql field` that of `@bidirekt field`. They take the options above, plus `scalar: 'DateTime'`, a custom scalar that replaces the field's type and is written as `type: scalar, name: DateTime`, and `arguments: ReviewsArgs`, the schema of the arguments the call passes to the field, as `first` in `reviews(first: 10)`. In a tag, `scalar=DateTime` and `arguments=ReviewsArgs`. A field takes one of the two, never both.
 
 ### Types
 

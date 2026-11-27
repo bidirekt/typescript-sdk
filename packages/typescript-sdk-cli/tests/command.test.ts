@@ -54,6 +54,7 @@ const tickets: ProtocolModule<number> = {
   isEmpty: (block) => block === 0,
   toYaml: () => new YAMLMap(),
   vocabulary: {
+    label: 'Tickets',
     fieldDecorator: sdkExportBorrowedAsFieldDecorator,
     fieldOptions: ['scalar', 'arguments'],
     toNode: (options, node) => ({ ...node, extra: options }),

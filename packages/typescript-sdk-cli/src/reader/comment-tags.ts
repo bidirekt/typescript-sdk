@@ -23,6 +23,7 @@ export type HandlerTag = CommentTag & { protocol: string }
 export type TaggedComment = {
   element: ts.Node
   tags: Array<CommentTag>
+  hasUnknownTag?: boolean
 }
 
 export type TagOption = {
@@ -56,6 +57,7 @@ type TagWords = {
   keywords: ReadonlyArray<string>
   keywordChoice: string
   owners: ReadonlyMap<string, string>
+  renamed: ReadonlyMap<string, string>
   vocabularies: ReadonlySet<string>
   decorators: ReadonlySet<string>
 }
@@ -105,6 +107,9 @@ function protocolsToTagWords(
     keywords,
     keywordChoice: namesToChoice(keywords),
     owners: new Map(owned),
+    renamed: new Map(
+      protocols.flatMap(({ renamedTags }) => Object.entries(renamedTags ?? {})),
+    ),
     vocabularies: new Set(
       protocols
         .filter(({ vocabulary }) => vocabulary !== undefined)
@@ -220,6 +225,7 @@ function readComment(
   const fences = commentToFences(file, comment)
   const examples: Array<Span> = []
   const tags: Array<CommentTag> = []
+  let hasUnknownTag = false
   let exampleStart: number | undefined
   for (const tag of comment.tags ?? []) {
     if (isInside(fences, tag.pos) || !startsItsLine(file, comment, tag.pos)) {
@@ -277,13 +283,15 @@ function readComment(
         ),
       )
     } else if (tagArguments.length === 0) {
+      hasUnknownTag = true
       read.errors.push({
         message: `"@${tagName}" needs a keyword: use ${words.keywordChoice}`,
         location,
       })
     } else {
+      hasUnknownTag = true
       read.errors.push({
-        message: `unknown tag "@${tagName} ${keyword}": use ${words.keywordChoice}`,
+        message: unknownKeywordToMessage(keyword, words),
         location,
       })
     }
@@ -304,8 +312,16 @@ function readComment(
     ) {
       target = typedef
     }
-    read.comments.push({ element: target, tags })
+    read.comments.push({ element: target, tags, hasUnknownTag })
   }
+}
+
+function unknownKeywordToMessage(keyword: string, words: TagWords): string {
+  const renamed = words.renamed.get(keyword)
+  if (renamed === undefined) {
+    return `unknown tag "@${tagName} ${keyword}": use ${words.keywordChoice}`
+  }
+  return `unknown tag "@${tagName} ${keyword}": write "@${tagName} ${renamed}"`
 }
 
 function warnSkippedTags(

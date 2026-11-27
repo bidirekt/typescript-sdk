@@ -10,12 +10,13 @@ type BidirektGraphqlPrimitive = Exclude<
 type BidirektGraphqlType =
   | BidirektSchemaClass
   | BidirektGraphqlPrimitive
-  | { scalar: string; name?: string }
+  | { scalar: string; name?: never }
   | { enum: ReadonlyArray<string>; name: string }
   | { union: Record<string, BidirektSchemaClass>; name: string }
 
 type BidirektGraphqlReturns =
   | BidirektGraphqlType
+  | { scalar: string; name?: string }
   | `${BidirektGraphqlPrimitive}[]`
   | readonly [BidirektGraphqlType]
   | {

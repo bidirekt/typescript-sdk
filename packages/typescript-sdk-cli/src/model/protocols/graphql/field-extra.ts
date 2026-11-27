@@ -1,4 +1,4 @@
-import type { SchemaNode } from '../../contract.ts'
+import type { PrimitiveType, SchemaNode } from '../../contract.ts'
 import type { OptionValue } from '../../../protocols.ts'
 
 type GraphqlExtra = {
@@ -7,6 +7,14 @@ type GraphqlExtra = {
 }
 
 export const fieldOptions = ['scalar', 'arguments']
+
+export const primitiveNames: ReadonlyMap<string, PrimitiveType> = new Map([
+  ['Int', 'integer'],
+  ['Float', 'float'],
+  ['Boolean', 'boolean'],
+  ['String', 'string'],
+  ['ID', 'string'],
+])
 
 export function scalarToNode(scalar: string): SchemaNode {
   return withExtra({ type: 'string' }, { scalar })

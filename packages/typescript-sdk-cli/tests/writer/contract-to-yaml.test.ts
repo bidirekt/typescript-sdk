@@ -29,6 +29,7 @@ const calls = countingProtocol('calls')
 const scalars: ProtocolModule<number> = {
   ...countingProtocol('scalars'),
   vocabulary: {
+    label: 'Scalars',
     fieldDecorator: 'ScalarField',
     fieldOptions: ['scalar'],
     toNode: (options, node) => ({ ...node, extra: options }),
@@ -49,6 +50,7 @@ function namingProtocol(name: string, type: string): ProtocolModule<number> {
   return {
     ...countingProtocol(name),
     vocabulary: {
+      label: name,
       fieldDecorator: `${name}Field`,
       fieldOptions: ['name'],
       toNode: (options, node) => ({ ...node, extra: options }),

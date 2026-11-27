@@ -1,0 +1,4 @@
+clients.ts:12 unknown option "scalar" in @BidirektField options: write name, description, optional, nullable, type or union; for GraphQL, use @BidirektGraphqlField
+clients.ts:16 unknown option "arguments" in @BidirektField options: write name, description, optional, nullable, type or union; for GraphQL, use @BidirektGraphqlField
+clients.ts:22 cannot read "scalar=DateTime" in "@bidirekt field": write "<key>=<value>" with key type, name, optional, nullable, description or union; for GraphQL, use "@bidirekt graphql field"
+clients.ts:31 cannot read "scalar=DateTime" in "@bidirekt field": write "<key>=<value>" with key type, optional, nullable, description or union; for GraphQL, use "@bidirekt graphql field"

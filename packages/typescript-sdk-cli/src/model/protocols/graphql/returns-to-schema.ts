@@ -77,7 +77,7 @@ function typeToName(type: ReturnedType): string {
     case 'primitive':
       return `${type.type.charAt(0).toUpperCase()}${type.type.slice(1)}`
     case 'scalar':
-      return type.name ?? type.scalar
+      return type.scalar
   }
 }
 

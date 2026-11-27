@@ -32,7 +32,7 @@ export type GraphqlBlock = {
 export type ReturnedType =
   | { kind: 'schema'; schema: string; declared?: SchemaNode }
   | { kind: 'primitive'; type: PrimitiveType }
-  | { kind: 'scalar'; scalar: string; name?: string }
+  | { kind: 'scalar'; scalar: string }
 
 export type Returns =
   | { form: 'type'; type: ReturnedType; name?: string }

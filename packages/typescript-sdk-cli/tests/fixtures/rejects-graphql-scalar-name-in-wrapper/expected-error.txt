@@ -1,0 +1,2 @@
+clients.ts:8 a scalar's "name" goes on "nullable": write { nullable: { scalar: 'DateTime' }, name: 'Instant' }
+clients.ts:16 a scalar's "name" goes on the list: write { list: { scalar: 'DateTime' }, name: 'Instant' }

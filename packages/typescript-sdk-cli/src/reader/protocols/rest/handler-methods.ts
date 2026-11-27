@@ -41,6 +41,14 @@ export const restDecoratorTargets: Record<string, DecoratorTarget> = {
   },
 }
 
+export const restRenamedExports: Record<string, string> = {
+  BidirektProvider: 'BidirektRestProvider',
+  BidirektConsumer: 'BidirektRestConsumer',
+  BidirektProviderOptions: 'BidirektRestProviderOptions',
+  BidirektConsumerOptions: 'BidirektRestConsumerOptions',
+  BidirektHttpMethod: 'BidirektRestHttpMethod',
+}
+
 const listKeys = ['list', 'name']
 
 const handlerOptions: Record<string, Array<string>> = {

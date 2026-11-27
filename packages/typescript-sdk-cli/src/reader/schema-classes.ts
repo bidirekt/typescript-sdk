@@ -245,7 +245,7 @@ export function sdkReferencesToSchemas(
     }
     for (const [field, annotation] of declaredFields) {
       if (!fields.has(field)) {
-        const read = fieldToProperty(field, annotation, context)
+        const read = fieldToProperty(field, annotation, context, protocols)
         fields.set(field, read)
         if (isDiagnostic(read)) {
           errors.add(read)
@@ -618,9 +618,10 @@ function fieldToProperty(
   field: SchemaMember,
   annotation: FieldAnnotation,
   context: SchemaContext,
+  protocols: ReadonlyArray<ProtocolModule>,
 ): Property | Diagnostic {
   const location = nodeToLocation(field.name)
-  const options = annotationToFieldOptions(annotation, context)
+  const options = annotationToFieldOptions(annotation, context, protocols)
   if (isDiagnostic(options)) {
     return withLocation(options, location)
   }
@@ -815,6 +816,7 @@ function fieldToFlags(
 function annotationToFieldOptions(
   annotation: FieldAnnotation,
   context: SchemaContext,
+  protocols: ReadonlyArray<ProtocolModule>,
 ): FieldOptions | Diagnostic {
   if (annotation.from === 'tag') {
     return annotation.options
@@ -824,6 +826,8 @@ function annotationToFieldOptions(
     call.arguments[0],
     `@${name} options`,
     [...fieldOptionKeys, ...(vocabulary?.fieldOptions ?? [])],
+    undefined,
+    (key) => optionToFieldDecoratorHint(key, protocols),
   )
   if (isDiagnostic(options)) {
     return options
@@ -837,6 +841,26 @@ function annotationToFieldOptions(
     return extension
   }
   return { ...fieldOptions, extension }
+}
+
+function optionToFieldDecoratorHint(
+  key: string,
+  protocols: ReadonlyArray<ProtocolModule>,
+): string | undefined {
+  const vocabulary = optionToOwningProtocol(key, protocols)?.vocabulary
+  if (vocabulary === undefined) {
+    return undefined
+  }
+  return `for ${vocabulary.label}, use @${vocabulary.fieldDecorator}`
+}
+
+export function optionToOwningProtocol(
+  key: string,
+  protocols: ReadonlyArray<ProtocolModule>,
+): ProtocolModule | undefined {
+  return protocols.find(
+    ({ vocabulary }) => vocabulary?.fieldOptions.includes(key) === true,
+  )
 }
 
 function literalOptionsToExtension(

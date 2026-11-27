@@ -30,7 +30,7 @@ export class PetstoreClient {
   @BidirektGraphqlConsumer({
     provider: 'petstore_api',
     query: 'closedAt',
-    returns: { nullable: { scalar: 'DateTime', name: 'Instant' } },
+    returns: { nullable: { scalar: 'DateTime' }, name: 'InstantOrNull' },
   })
   closedAt() {}
 }

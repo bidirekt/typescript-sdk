@@ -2,7 +2,7 @@
 # Publishes the expected.yaml of every success fixture, with the *.graphqls beside it, to a throwaway broker, one participant per fixture.
 # Proves the broker accepts what generate writes. COMPOSE_PROJECT_NAME picks the compose project (default typescript-sdk-e2e).
 # E2E_COMPOSE_OVERRIDE names a compose file passed as a second -f, such as one with broker and CLI images that read GraphQL.
-# Without it the GraphQL fixtures are skipped; with it a GraphQL consumer is also checked against a subgraph's SDL.
+# Without it the GraphQL fixtures are skipped; with it two GraphQL consumers are also checked against a subgraph's SDL.
 set -eu
 
 dir=$(cd "$(dirname "$0")" && pwd)
@@ -113,6 +113,37 @@ case $output in
   *)
     echo "FAIL $consumer against $provider: expected the break"
     printf '%s\n' "$expected_break" | sed 's/^/  /'
+    echo "got"
+    printf '%s\n' "$output" | sed 's/^/  /'
+    exit 1
+    ;;
+esac
+
+enum_consumer=graphql-returns-enum
+enum_participant=e2e_$(printf '%s' "$enum_consumer" | tr - _)
+if output=$(cli can-i-deploy "$enum_participant" --version 1 --environment production); then
+  echo "FAIL $enum_consumer can be deployed against $provider"
+  printf '%s\n' "$output" | sed 's/^/  /'
+  exit 1
+fi
+
+# The block's title is the consumer's schema the break sits in, StatusOrNull; the type the consumer reads is Status.
+expected_enum_break="— $enum_participant reads it as Status, but petstore_api provides String
+    → $enum_participant: read it as String
+    → petstore_api: provide it as Status there
+      · query status returns at \"\$\" (petstore_api: Query.status)"
+case $output in
+  *"as StatusOrNull"*)
+    echo "FAIL $enum_consumer against $provider: the break names the type StatusOrNull"
+    printf '%s\n' "$output" | sed 's/^/  /'
+    exit 1
+    ;;
+  *"$expected_enum_break"*)
+    echo "ok $enum_consumer cannot be deployed against $provider"
+    ;;
+  *)
+    echo "FAIL $enum_consumer against $provider: expected the break"
+    printf '%s\n' "$expected_enum_break" | sed 's/^/  /'
     echo "got"
     printf '%s\n' "$output" | sed 's/^/  /'
     exit 1

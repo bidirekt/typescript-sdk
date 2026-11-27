@@ -11,6 +11,8 @@ type Query {
   pet(id: ID!): Pet
   pets: [Pet!]!
   petCount: Int!
+  status: String
+  statuses: [Status!]!
 }
 
 type Mutation {

@@ -45,9 +45,14 @@ type SdkModule = {
   functions: ReadonlyMap<ts.Symbol, string>
 }
 
+type ImportedName = {
+  name: ts.ModuleExportName
+  typeOnly: boolean
+}
+
 type ImportedNames = {
   from: ts.Node
-  names: ReadonlyArray<ts.ModuleExportName>
+  names: ReadonlyArray<ImportedName>
 }
 
 export const fieldTarget: DecoratorTarget = {
@@ -84,6 +89,11 @@ export function programToSdkReferences(
   protocols: ReadonlyArray<ProtocolModule>,
 ): Array<SdkReference> {
   const targets = protocolsToDecoratorTargets(protocols)
+  const renamed = new Map(
+    protocols.flatMap(({ renamedExports }) =>
+      Object.entries(renamedExports ?? {}),
+    ),
+  )
   const checker = projectProgram.program.getTypeChecker()
   const sdk = programToSdkModule(projectProgram, checker)
   const found: Array<FoundReference> = []
@@ -95,7 +105,7 @@ export function programToSdkReferences(
     .filter((file) => !file.isDeclarationFile)
     .reverse()
   for (let node = pending.pop(); node !== undefined; node = pending.pop()) {
-    unexported.push(...nodeToUnexported(node, checker, sdk))
+    unexported.push(...nodeToUnexported(node, checker, sdk, renamed))
     if (
       ts.isImportDeclaration(node) ||
       ts.isImportEqualsDeclaration(node) ||
@@ -130,19 +140,35 @@ function nodeToUnexported(
   node: ts.Node,
   checker: ts.TypeChecker,
   sdk: SdkModule,
+  renamed: ReadonlyMap<string, string>,
 ): Array<SdkReference> {
   const imported = nodeToImportedNames(node)
   if (imported === undefined || !isSdkModule(imported.from, checker, sdk)) {
     return []
   }
   return imported.names
-    .filter(({ text }) => !sdk.names.has(text))
-    .map((name) => ({
+    .filter(({ name }) => !sdk.names.has(name.text))
+    .map(({ name, typeOnly }) => ({
       use: 'unexported',
       name: name.text,
-      message: `${name.text} is not exported by ${sdkPackage}, so it is not read`,
+      message: unexportedToMessage(name.text, typeOnly, renamed),
       location: nodeToLocation(name),
     }))
+}
+
+function unexportedToMessage(
+  name: string,
+  typeOnly: boolean,
+  renamed: ReadonlyMap<string, string>,
+): string {
+  const current = renamed.get(name)
+  if (current !== undefined) {
+    return `${name} is not exported by ${sdkPackage}: it is now ${current}`
+  }
+  if (typeOnly) {
+    return `${name} is not exported by ${sdkPackage}`
+  }
+  return `${name} is not exported by ${sdkPackage}, so it is not read`
 }
 
 function nodeToImportedNames(node: ts.Node): ImportedNames | undefined {
@@ -151,9 +177,13 @@ function nodeToImportedNames(node: ts.Node): ImportedNames | undefined {
     node.importClause?.namedBindings !== undefined &&
     ts.isNamedImports(node.importClause.namedBindings)
   ) {
+    const isTypeOnly =
+      node.importClause.phaseModifier === ts.SyntaxKind.TypeKeyword
     return {
       from: node.moduleSpecifier,
-      names: node.importClause.namedBindings.elements.map(specifierToName),
+      names: node.importClause.namedBindings.elements.map((specifier) =>
+        specifierToName(specifier, isTypeOnly),
+      ),
     }
   }
   if (
@@ -162,9 +192,12 @@ function nodeToImportedNames(node: ts.Node): ImportedNames | undefined {
     node.exportClause !== undefined &&
     ts.isNamedExports(node.exportClause)
   ) {
+    const { isTypeOnly } = node
     return {
       from: node.moduleSpecifier,
-      names: node.exportClause.elements.map(specifierToName),
+      names: node.exportClause.elements.map((specifier) =>
+        specifierToName(specifier, isTypeOnly),
+      ),
     }
   }
   if (
@@ -173,11 +206,14 @@ function nodeToImportedNames(node: ts.Node): ImportedNames | undefined {
   ) {
     return {
       from: node.moduleReference.left,
-      names: [node.moduleReference.right],
+      names: [{ name: node.moduleReference.right, typeOnly: node.isTypeOnly }],
     }
   }
   if (ts.isPropertyAccessExpression(node) && ts.isIdentifier(node.name)) {
-    return { from: node.expression, names: [node.name] }
+    return {
+      from: node.expression,
+      names: [{ name: node.name, typeOnly: false }],
+    }
   }
   if (ts.isBindingElement(node)) {
     return requireBindingToImportedNames(node)
@@ -187,8 +223,12 @@ function nodeToImportedNames(node: ts.Node): ImportedNames | undefined {
 
 function specifierToName(
   specifier: ts.ImportSpecifier | ts.ExportSpecifier,
-): ts.ModuleExportName {
-  return specifier.propertyName ?? specifier.name
+  declarationIsTypeOnly: boolean,
+): ImportedName {
+  return {
+    name: specifier.propertyName ?? specifier.name,
+    typeOnly: declarationIsTypeOnly || specifier.isTypeOnly,
+  }
 }
 
 function requireBindingToImportedNames(
@@ -209,7 +249,7 @@ function requireBindingToImportedNames(
   if (specifier === undefined) {
     return undefined
   }
-  return { from: specifier, names: [name] }
+  return { from: specifier, names: [{ name, typeOnly: false }] }
 }
 
 function isSdkModule(

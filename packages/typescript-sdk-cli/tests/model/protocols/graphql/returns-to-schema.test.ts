@@ -4,7 +4,10 @@ import type {
   SourceLocation,
   UnionMember,
 } from '../../../../src/model/contract.ts'
-import type { ReturnedType } from '../../../../src/model/protocols/graphql/contract.ts'
+import type {
+  ReturnedType,
+  Returns,
+} from '../../../../src/model/protocols/graphql/contract.ts'
 import { returnsToSchema } from '../../../../src/model/protocols/graphql/returns-to-schema.ts'
 
 const at: SourceLocation = { file: 'src/clients.ts', line: 4 }
@@ -115,14 +118,18 @@ describe('returnsToSchema', () => {
     )
   })
 
-  it('derives a schema for a primitive and a scalar, named after each', () => {
-    const returned: Array<ReturnedType> = [
-      { kind: 'primitive', type: 'boolean' },
-      { kind: 'scalar', scalar: 'DateTime' },
-      { kind: 'scalar', scalar: 'DateTime', name: 'Instant' },
+  it('derives a schema for a primitive and a scalar, named after each or by the declared name', () => {
+    const returned: Array<Returns> = [
+      { form: 'type', type: { kind: 'primitive', type: 'boolean' } },
+      { form: 'type', type: { kind: 'scalar', scalar: 'DateTime' } },
+      {
+        form: 'type',
+        type: { kind: 'scalar', scalar: 'DateTime' },
+        name: 'Instant',
+      },
     ]
     assert.deepEqual(
-      returned.map((type) => returnsToSchema({ form: 'type', type }, at)),
+      returned.map((returns) => returnsToSchema(returns, at)),
       [
         {
           schema: 'Boolean',

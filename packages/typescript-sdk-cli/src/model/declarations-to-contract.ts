@@ -29,6 +29,10 @@ export type ProtocolBlock = {
   block: unknown
 }
 
+type VocabularyReference = Reference & {
+  vocabulary?: SchemaVocabulary
+}
+
 export function declarationsToContract(
   declarations: Declarations,
   protocols: ReadonlyArray<ProtocolModule>,
@@ -134,11 +138,30 @@ function isSameSchema(schema: NamedSchema, first: NamedSchema): boolean {
   if (schema.node === first.node) {
     return true
   }
-  const derived = schema.derived === true && first.derived === true
+  if (schema.derived === true && first.derived === true) {
+    return isDeepStrictEqual(
+      withSortedMembers(schema.node),
+      withSortedMembers(first.node),
+    )
+  }
   return (
-    (schema.node.type === 'array' || derived) &&
-    isDeepStrictEqual(schema.node, first.node)
+    schema.node.type === 'array' && isDeepStrictEqual(schema.node, first.node)
   )
+}
+
+function withSortedMembers(node: SchemaNode): SchemaNode {
+  switch (node.type) {
+    case 'enum':
+      return { ...node, members: node.members.toSorted() }
+    case 'union':
+      return {
+        ...node,
+        members: node.members.toSorted((a, b) =>
+          Buffer.compare(Buffer.from(a.key), Buffer.from(b.key)),
+        ),
+      }
+  }
+  return node
 }
 
 function collisionToMessage(name: string, group: Array<NamedSchema>): string {
@@ -157,9 +180,13 @@ function contractToMissingReferences(
   protocols: ReadonlyArray<ProtocolModule>,
   declared: ReadonlySet<string>,
 ): Array<Diagnostic> {
-  const references: Array<Reference> = [
+  const references: Array<VocabularyReference> = [
     ...contractToProtocolBlocks(contract, protocols).flatMap(
-      ({ protocol, block }) => protocol.references(block),
+      ({ protocol, block }) =>
+        protocol.references(block).map((reference) => ({
+          ...reference,
+          vocabulary: protocol.vocabulary,
+        })),
     ),
     ...contract.schemas.flatMap((schema) =>
       nodeToReferences(schema.node, schema.location, schema.vocabulary),
@@ -167,17 +194,28 @@ function contractToMissingReferences(
   ]
   return references
     .filter(({ schema }) => !declared.has(schema))
-    .map(({ schema, location }) => ({
-      message: `schema "${schema}" is not declared: reference a schema by its name in the contract`,
+    .map(({ schema, location, vocabulary }) => ({
+      message: missingSchemaToMessage(schema, vocabulary),
       location,
     }))
+}
+
+function missingSchemaToMessage(
+  schema: string,
+  vocabulary: SchemaVocabulary | undefined,
+): string {
+  const primitive = vocabulary?.primitiveNames?.get(schema)
+  if (vocabulary === undefined || primitive === undefined) {
+    return `schema "${schema}" is not declared: reference a schema by its name in the contract`
+  }
+  return `${schema} is ${vocabulary.label}'s name: write ${primitive}`
 }
 
 function nodeToReferences(
   node: SchemaNode,
   location: SourceLocation,
   vocabulary: SchemaVocabulary | undefined,
-): Array<Reference> {
+): Array<VocabularyReference> {
   return [
     ...extraToReferences(node, location, vocabulary),
     ...typeToReferences(node, location, vocabulary),
@@ -188,7 +226,7 @@ function extraToReferences(
   node: SchemaNode,
   location: SourceLocation,
   vocabulary: SchemaVocabulary | undefined,
-): Array<Reference> {
+): Array<VocabularyReference> {
   if (node.extra === undefined || vocabulary === undefined) {
     return []
   }
@@ -199,10 +237,10 @@ function typeToReferences(
   node: SchemaNode,
   location: SourceLocation,
   vocabulary: SchemaVocabulary | undefined,
-): Array<Reference> {
+): Array<VocabularyReference> {
   switch (node.type) {
     case 'ref':
-      return [{ schema: node.schema, location }]
+      return [{ schema: node.schema, location, vocabulary }]
     case 'object':
       return propertiesToReferences(node.properties)
     case 'array':
@@ -220,7 +258,9 @@ function typeToReferences(
   return []
 }
 
-function propertiesToReferences(properties: Array<Property>): Array<Reference> {
+function propertiesToReferences(
+  properties: Array<Property>,
+): Array<VocabularyReference> {
   return properties.flatMap((property) =>
     nodeToReferences(property.node, property.location, property.vocabulary),
   )

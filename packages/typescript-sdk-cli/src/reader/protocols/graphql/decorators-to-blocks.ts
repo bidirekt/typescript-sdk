@@ -59,6 +59,13 @@ const enumKeys = ['enum', 'name']
 
 const unionKeys = ['union', 'name']
 
+type Wrapper = 'nullable' | 'list'
+
+const wrapperPlaces: Record<Wrapper, string> = {
+  nullable: '"nullable"',
+  list: 'the list',
+}
+
 export function sdkDecoratorsToBlocks(
   decorators: Array<SdkDecorator>,
   context: SchemaContext,
@@ -265,7 +272,7 @@ function expressionToReturns(
     if (expression.elements.length !== 1 || ts.isSpreadElement(items)) {
       return unreadableReturns(expression)
     }
-    const type = expressionToReturnedType(items, context)
+    const type = expressionToReturnedType(items, context, 'list')
     if (isDiagnostic(type)) {
       return type
     }
@@ -281,6 +288,9 @@ function expressionToReturns(
     }
     if (options.has('nullable')) {
       return optionsToNullable(options, expression, context)
+    }
+    if (options.has('scalar') && hasOnlyKeys(options, scalarKeys)) {
+      return optionsToScalarReturns(options, expression)
     }
   }
   const type = expressionToReturnedType(expression, context)
@@ -299,7 +309,7 @@ function optionsToList(
   if (items === undefined || !hasOnlyKeys(options, listKeys)) {
     return unreadableReturns(expression)
   }
-  const type = expressionToReturnedType(items, context)
+  const type = expressionToReturnedType(items, context, 'list')
   if (isDiagnostic(type)) {
     return type
   }
@@ -336,7 +346,7 @@ function optionsToNullable(
   if (nullable === undefined || !hasOnlyKeys(options, nullableKeys)) {
     return unreadableReturns(expression)
   }
-  const type = expressionToReturnedType(nullable, context)
+  const type = expressionToReturnedType(nullable, context, 'nullable')
   if (isDiagnostic(type)) {
     return type
   }
@@ -351,9 +361,29 @@ function optionsToNullable(
   return returns
 }
 
+function optionsToScalarReturns(
+  options: LiteralOptions,
+  expression: ts.Expression,
+): Returns | Diagnostic {
+  const type = optionsToScalar(options, expression)
+  if (isDiagnostic(type)) {
+    return type
+  }
+  const name = literalOptionToName(options, 'name')
+  if (isDiagnostic(name)) {
+    return name
+  }
+  const returns: Returns = { form: 'type', type }
+  if (name !== undefined) {
+    returns.name = name
+  }
+  return returns
+}
+
 function expressionToReturnedType(
   expression: ts.Expression,
   context: SchemaContext,
+  wrapper?: Wrapper,
 ): ReturnedType | Diagnostic {
   if (
     ts.isIdentifier(expression) ||
@@ -378,7 +408,7 @@ function expressionToReturnedType(
     return options
   }
   if (options.has('scalar') && hasOnlyKeys(options, scalarKeys)) {
-    return optionsToScalar(options, expression)
+    return optionsToScalar(options, expression, wrapper)
   }
   if (options.has('enum') && hasOnlyKeys(options, enumKeys)) {
     return optionsToEnum(options, expression)
@@ -392,6 +422,7 @@ function expressionToReturnedType(
 function optionsToScalar(
   options: LiteralOptions,
   expression: ts.Expression,
+  wrapper?: Wrapper,
 ): ReturnedType | Diagnostic {
   const scalar = literalOptionToName(options, 'scalar')
   if (isDiagnostic(scalar)) {
@@ -400,15 +431,17 @@ function optionsToScalar(
   if (scalar === undefined) {
     return unreadableReturns(expression)
   }
+  if (wrapper === undefined || !options.has('name')) {
+    return { kind: 'scalar', scalar }
+  }
   const name = literalOptionToName(options, 'name')
   if (isDiagnostic(name)) {
     return name
   }
-  const type: ReturnedType = { kind: 'scalar', scalar }
-  if (name !== undefined) {
-    type.name = name
+  return {
+    message: `a scalar's "name" goes on ${wrapperPlaces[wrapper]}: write { ${wrapper}: { scalar: '${scalar}' }, name: '${name}' }`,
+    location: nodeToLocation(expression),
   }
-  return type
 }
 
 function optionsToEnum(

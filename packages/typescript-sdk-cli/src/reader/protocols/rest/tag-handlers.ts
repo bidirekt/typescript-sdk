@@ -26,6 +26,11 @@ type Endpoint = {
   path: string
 }
 
+export const restRenamedTags: Record<string, string> = {
+  provides: 'rest provides',
+  consumes: 'rest consumes',
+}
+
 const endpointForms = {
   provides: { usage: '@bidirekt rest provides <METHOD> <path>', arguments: 2 },
   consumes: {
