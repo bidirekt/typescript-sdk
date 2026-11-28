@@ -147,7 +147,10 @@ export class PetsController {
     if (typeof body.name !== 'string') {
       throw new BadRequestException()
     }
-    const pet = Object.assign(new Pet(), { petId: this.pets.size + 1, ...body })
+    const pet = Object.assign(new Pet(), {
+      petId: this.pets.size + 1,
+      ...body,
+    })
     this.pets.set(pet.petId, pet)
     return pet
   }
@@ -170,7 +173,8 @@ export class RatingsClient {
   })
   async find(petId: number): Promise<Rating | null> {
     const response = await fetch(`http://petstore-reviews/ratings/${petId}`)
-    return response.status === 404 ? null : ((await response.json()) as Rating)
+    if (response.status === 404) return null
+    return (await response.json()) as Rating
   }
 }
 ```
@@ -299,7 +303,8 @@ import type { Rating } from './pet.ts'
  */
 export async function findRating(petId: number): Promise<Rating | null> {
   const response = await fetch(`http://petstore-reviews/ratings/${petId}`)
-  return response.status === 404 ? null : ((await response.json()) as Rating)
+  if (response.status === 404) return null
+  return (await response.json()) as Rating
 }
 ```
 
