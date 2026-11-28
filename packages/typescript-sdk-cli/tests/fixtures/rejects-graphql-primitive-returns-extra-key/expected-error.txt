@@ -1,0 +1,1 @@
+clients.ts:8 cannot read "{ type: 'boolean', name: 'Flag', description: 'Deleted' }" as returns: write a @BidirektSchema class, a primitive such as 'boolean', { type: '<primitive>', name: '<name>' }, [Schema], { list: Schema }, { nullable: Schema }, { scalar: '<name>' }, { enum: [...], name: '<name>' } or { union: {...}, name: '<name>' }

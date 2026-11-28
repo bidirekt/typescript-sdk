@@ -55,6 +55,8 @@ const nullableKeys = ['nullable', 'name']
 
 const scalarKeys = ['scalar', 'name']
 
+const primitiveKeys = ['type', 'name']
+
 const enumKeys = ['enum', 'name']
 
 const unionKeys = ['union', 'name']
@@ -292,6 +294,9 @@ function expressionToReturns(
     if (options.has('scalar') && hasOnlyKeys(options, scalarKeys)) {
       return optionsToScalarReturns(options, expression)
     }
+    if (options.has('type') && hasOnlyKeys(options, primitiveKeys)) {
+      return optionsToPrimitiveReturns(options, expression)
+    }
   }
   const type = expressionToReturnedType(expression, context)
   if (isDiagnostic(type)) {
@@ -368,6 +373,29 @@ function optionsToScalarReturns(
   const type = optionsToScalar(options, expression)
   if (isDiagnostic(type)) {
     return type
+  }
+  const name = literalOptionToName(options, 'name')
+  if (isDiagnostic(name)) {
+    return name
+  }
+  const returns: Returns = { form: 'type', type }
+  if (name !== undefined) {
+    returns.name = name
+  }
+  return returns
+}
+
+function optionsToPrimitiveReturns(
+  options: LiteralOptions,
+  expression: ts.Expression,
+): Returns | Diagnostic {
+  const written = options.get('type')
+  if (written === undefined || !ts.isStringLiteralLike(written)) {
+    return unreadableReturns(expression)
+  }
+  const type = textToReturnedPrimitive(written.text)
+  if (type === undefined) {
+    return unreadableReturns(expression)
   }
   const name = literalOptionToName(options, 'name')
   if (isDiagnostic(name)) {
@@ -536,7 +564,7 @@ function hasOnlyKeys(
 
 function unreadableReturns(expression: ts.Expression): Diagnostic {
   return {
-    message: `cannot read "${expression.getText()}" as returns: write a @BidirektSchema class, a primitive such as 'boolean', [Schema], { list: Schema }, { nullable: Schema }, { scalar: '<name>' }, { enum: [...], name: '<name>' } or { union: {...}, name: '<name>' }`,
+    message: `cannot read "${expression.getText()}" as returns: write a @BidirektSchema class, a primitive such as 'boolean', { type: '<primitive>', name: '<name>' }, [Schema], { list: Schema }, { nullable: Schema }, { scalar: '<name>' }, { enum: [...], name: '<name>' } or { union: {...}, name: '<name>' }`,
     location: nodeToLocation(expression),
   }
 }

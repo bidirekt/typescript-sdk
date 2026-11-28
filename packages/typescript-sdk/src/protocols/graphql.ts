@@ -17,6 +17,7 @@ type BidirektGraphqlType =
 type BidirektGraphqlReturns =
   | BidirektGraphqlType
   | { scalar: string; name?: string }
+  | { type: BidirektGraphqlPrimitive; name?: string }
   | `${BidirektGraphqlPrimitive}[]`
   | readonly [BidirektGraphqlType]
   | {

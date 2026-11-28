@@ -324,6 +324,7 @@ describe('GraphQL consumer options', () => {
       "@BidirektGraphqlConsumer({ provider: 'petstore_api', query: 'match', returns: { union: { Pet: Pet }, name: 'SearchResult' } })",
       "@BidirektGraphqlConsumer({ provider: 'petstore_api', query: 'search', returns: { list: { union: { Pet: Pet }, name: 'SearchResult' } } })",
       "@BidirektGraphqlConsumer({ provider: 'petstore_api', mutation: 'deletePet', returns: { nullable: 'boolean' } })",
+      "@BidirektGraphqlConsumer({ provider: 'petstore_api', mutation: 'deletePet', returns: { type: 'boolean', name: 'Flag' } })",
     ],
     'query-and-mutation': [
       "@BidirektGraphqlConsumer({ provider: 'petstore_api', query: 'pet', mutation: 'adoptPet', returns: Pet })",
@@ -336,6 +337,9 @@ describe('GraphQL consumer options', () => {
     ],
     'union-without-name': [
       "@BidirektGraphqlConsumer({ provider: 'petstore_api', query: 'search', returns: { union: { Pet: Pet } } })",
+    ],
+    'type-not-a-primitive': [
+      "@BidirektGraphqlConsumer({ provider: 'petstore_api', query: 'tags', returns: { type: 'string[]', name: 'Tags' } })",
     ],
   }
   let optionsRoot = ''
@@ -417,6 +421,13 @@ describe('GraphQL consumer options', () => {
     assert.match(
       errors.get('union-without-name')?.join('\n') ?? '',
       /'{ union: { Pet: typeof Pet; }; }' is not assignable to type 'BidirektGraphqlReturns'/,
+    )
+  })
+
+  test('does not compile with a type that is not a primitive', () => {
+    assert.match(
+      errors.get('type-not-a-primitive')?.join('\n') ?? '',
+      /'"string\[\]"' is not assignable to type 'BidirektGraphqlPrimitive/,
     )
   })
 })
