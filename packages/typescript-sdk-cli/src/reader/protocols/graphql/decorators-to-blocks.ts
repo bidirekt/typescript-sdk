@@ -292,10 +292,10 @@ function expressionToReturns(
       return optionsToNullable(options, expression, context)
     }
     if (options.has('scalar') && hasOnlyKeys(options, scalarKeys)) {
-      return optionsToScalarReturns(options, expression)
+      return optionsToNamedTypeReturns(options, expression, optionsToScalar)
     }
     if (options.has('type') && hasOnlyKeys(options, primitiveKeys)) {
-      return optionsToPrimitiveReturns(options, expression)
+      return optionsToNamedTypeReturns(options, expression, optionsToPrimitive)
     }
   }
   const type = expressionToReturnedType(expression, context)
@@ -366,11 +366,15 @@ function optionsToNullable(
   return returns
 }
 
-function optionsToScalarReturns(
+function optionsToNamedTypeReturns(
   options: LiteralOptions,
   expression: ts.Expression,
+  readType: (
+    options: LiteralOptions,
+    expression: ts.Expression,
+  ) => ReturnedType | Diagnostic,
 ): Returns | Diagnostic {
-  const type = optionsToScalar(options, expression)
+  const type = readType(options, expression)
   if (isDiagnostic(type)) {
     return type
   }
@@ -385,27 +389,15 @@ function optionsToScalarReturns(
   return returns
 }
 
-function optionsToPrimitiveReturns(
+function optionsToPrimitive(
   options: LiteralOptions,
   expression: ts.Expression,
-): Returns | Diagnostic {
+): ReturnedType | Diagnostic {
   const written = options.get('type')
   if (written === undefined || !ts.isStringLiteralLike(written)) {
     return unreadableReturns(expression)
   }
-  const type = textToReturnedPrimitive(written.text)
-  if (type === undefined) {
-    return unreadableReturns(expression)
-  }
-  const name = literalOptionToName(options, 'name')
-  if (isDiagnostic(name)) {
-    return name
-  }
-  const returns: Returns = { form: 'type', type }
-  if (name !== undefined) {
-    returns.name = name
-  }
-  return returns
+  return textToReturnedPrimitive(written.text) ?? unreadableReturns(expression)
 }
 
 function expressionToReturnedType(
